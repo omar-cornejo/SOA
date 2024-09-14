@@ -24,7 +24,51 @@ Byte inb (unsigned short port)
   return v;
 }
 
+void scrollScreen() {
+    Word *screen = (Word *)0xb8000;
+
+    // Desplazar todas las filas una posición hacia arriba
+    for (int row = 1; row < NUM_ROWS; row++) {
+        for (int col = 0; col < NUM_COLUMNS; col++) {
+            screen[(row - 1) * NUM_COLUMNS + col] = screen[row * NUM_COLUMNS + col];
+        }
+    }
+
+    // Limpiar la última fila (llenarla con espacios)
+    for (int col = 0; col < NUM_COLUMNS; col++) {
+        screen[(NUM_ROWS - 1) * NUM_COLUMNS + col] = 0x0720; // Espacio con fondo negro y texto gris
+    }
+}
+
+
 void printc(char c)
+{
+    __asm__ __volatile__ ( "movb %0, %%al; outb $0xe9" ::"a"(c)); /* Magic BOCHS debug: writes 'c' to port 0xe9 */
+
+    if (c == '\n') {
+        x = 0;
+        y++;
+    }
+    else {
+        Word ch = (Word) (c & 0x00FF) | 0x0200; // Carácter con atributos de color
+        Word *screen = (Word *)0xb8000;
+        screen[(y * NUM_COLUMNS + x)] = ch;
+
+        if (++x >= NUM_COLUMNS) { // Si llegamos al final de la fila
+            x = 0;
+            y++;
+        }
+    }
+
+    // Si llegamos al final de la pantalla, hacer scroll
+    if (y >= NUM_ROWS) {
+        scrollScreen();
+        y = NUM_ROWS - 1; // Ajustar el cursor a la última fila después del scroll
+    }
+}
+
+
+void printc_color(char c)
 {
      __asm__ __volatile__ ( "movb %0, %%al; outb $0xe9" ::"a"(c)); /* Magic BOCHS debug: writes 'c' to port 0xe9 */
   if (c=='\n')
@@ -34,9 +78,9 @@ void printc(char c)
   }
   else
   {
-    Word ch = (Word) (c & 0x00FF) | 0x0200;
-	Word *screen = (Word *)0xb8000;
-	screen[(y * NUM_COLUMNS + x)] = ch;
+    Word ch = (Word) (c & 0x00FF) | 0x0600;
+  Word *screen = (Word *)0xb8000;
+  screen[(y * NUM_COLUMNS + x)] = ch;
     if (++x >= NUM_COLUMNS)
     {
       x = 0;
@@ -63,3 +107,12 @@ void printk(char *string)
   for (i = 0; string[i]; i++)
     printc(string[i]);
 }
+
+void printk_color(char *string)
+{
+  int i;
+  for (i = 0; string[i]; i++)
+    printc_color(string[i]);
+}
+
+

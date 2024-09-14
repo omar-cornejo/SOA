@@ -72,6 +72,9 @@ int __attribute__((__section__(".text.main")))
 
   /*** DO *NOT* ADD ANY CODE IN THIS ROUTINE BEFORE THIS POINT ***/
 
+  printk("Omar Cornejo \n");
+
+  printk_color("  SOA  GRUP 12L   \n");
   printk("Kernel Loaded!    ");
 
 
@@ -98,7 +101,7 @@ int __attribute__((__section__(".text.main")))
   copy_data((void *) KERNEL_START + *p_sys_size, (void*)L_USER_START, *p_usr_size);
 
 
-  printk("Entering user mode...");
+  printk("Entering user mode... Entering user mode... Entering user mode... Entering user mode... Entering user mode... Entering user mode...");
 
   enable_int();
   /*
