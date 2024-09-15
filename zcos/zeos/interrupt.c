@@ -12,21 +12,20 @@
 Gate idt[IDT_ENTRIES];
 Register    idtR;
 
-char char_map[] =
-{
-  '\0','\0','1','2','3','4','5','6',
-  '7','8','9','0','\'','¡','\0','\0',
-  'q','w','e','r','t','y','u','i',
-  'o','p','`','+','\0','\0','a','s',
-  'd','f','g','h','j','k','l','ñ',
-  '\0','º','\0','ç','z','x','c','v',
-  'b','n','m',',','.','-','\0','*',
-  '\0','\0','\0','\0','\0','\0','\0','\0',
-  '\0','\0','\0','\0','\0','\0','\0','7',
-  '8','9','-','4','5','6','+','1',
-  '2','3','0','\0','\0','\0','<','\0',
-  '\0','\0','\0','\0','\0','\0','\0','\0',
-  '\0','\0'
+char char_map[] = {
+    '\0', '\0', '1', '2', '3', '4', '5', '6',
+    '7', '8', '9', '0', '\'', 'i', '\0', '\0',
+    'q', 'w', 'e', 'r', 't', 'y', 'u', 'i',
+    'o', 'p', '`', '+', '\0', '\0', 'a', 's',
+    'd', 'f', 'g', 'h', 'j', 'k', 'l', 'Ã±',
+    '\0', 'Âº', '\0', 'Ã§', 'z', 'x', 'c', 'v',
+    'b', 'n', 'm', ',', '.', '-', '\0', '*',
+    '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0',
+    '\0', '\0', '\0', '\0', '\0', '\0', '\0', '7',
+    '8', '9', '-', '4', '5', '6', '+', '1',
+    '2', '3', '0', '\0', '\0', '\0', '<', '\0',
+    '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0',
+    '\0', '\0'
 };
 
 void setInterruptHandler(int vector, void (*handler)(), int maxAccessibleFromPL)
@@ -74,6 +73,8 @@ void setTrapHandler(int vector, void (*handler)(), int maxAccessibleFromPL)
 }
 
 
+void keyboard_handler();
+
 void setIdt()
 {
   /* Program interrups/exception service routines */
@@ -83,7 +84,21 @@ void setIdt()
   set_handlers();
 
   /* ADD INITIALIZATION CODE FOR INTERRUPT VECTOR */
-
+  setInterruptHandler(33, keyboard_handler, 0 );
   set_idt_reg(&idtR);
 }
 
+
+void keyboard_routine(){
+  // Read from port 0x60 (pv = port value)
+  unsigned char pv = inb(0x60);
+  // 0x80 = 10000000
+  // 0x80 & 00000000 = 0 // Make
+  // 0x80 & 10000000 = 1 // Break
+  int isbreak = pv & 0x80;
+
+  if(isbreak == 0){ // If it is a make
+    char toprint = char_map[pv & 0x7F];
+    printc_xy(70, 20, toprint);
+  }
+}
