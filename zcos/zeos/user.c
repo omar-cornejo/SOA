@@ -14,5 +14,10 @@ int __attribute__ ((__section__(".text.main")))
 
 	// int numero = addASM(0x42,0x666);
     
-  while(1) { }
+    //int* numero = 0;
+  	//*numero = 0;
+  while(1) {
+
+
+  }
 }

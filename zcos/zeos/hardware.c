@@ -104,7 +104,7 @@ __asm__ __volatile__(
   "sti"
   : /*no output*/
   // : "i" (0xff)       /* 0xFF = 11111111 -> all bits disabled */
-  : "i" (0xfd)       /* 0xFF = 11111111 -> all bits disabled */
+  : "i" (0xfc)       /* 0xFF = 11111111 -> all bits disabled */
   : "%al" );
 }
 

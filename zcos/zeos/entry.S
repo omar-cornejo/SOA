@@ -71,8 +71,19 @@
 
 ENTRY(keyboard_handler)
       SAVE_ALL
-      EOI
       call keyboard_routine
+      EOI
       RESTORE_ALL
       /*May need to remove error code (see page 26, point 5)*/
+      iret
+
+ENTRY(pf_handler)
+      call pf_routine
+      EOI
+
+ENTRY(clock_handler)
+      SAVE_ALL
+      call clock_routine
+      EOI
+      RESTORE_ALL
       iret

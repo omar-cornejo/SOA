@@ -74,6 +74,9 @@ void setTrapHandler(int vector, void (*handler)(), int maxAccessibleFromPL)
 
 
 void keyboard_handler();
+void pf_handler();
+void clock_handler();
+
 
 void setIdt()
 {
@@ -85,6 +88,9 @@ void setIdt()
 
   /* ADD INITIALIZATION CODE FOR INTERRUPT VECTOR */
   setInterruptHandler(33, keyboard_handler, 0 );
+  setInterruptHandler(14, pf_handler, 0);
+  setInterruptHandler(32, clock_handler, 0);
+
   set_idt_reg(&idtR);
 }
 
@@ -101,4 +107,48 @@ void keyboard_routine(){
     char toprint = char_map[pv & 0x7F];
     printc_xy(70, 20, toprint);
   }
+}
+
+char hex[9];
+
+char* unsignedIntToHex(unsigned int num) {
+        // Un entero de 32 bits puede ser representado por 8 dígitos hexadecimales + 1 para el terminador nulo.
+        int i = 7;    // Posición del último dígito hexadecimal
+
+        // Inicializamos la cadena con ceros
+        for (int j = 0; j < 8; j++) {
+            hex[j] = '0';
+        }
+        hex[8] = '\0';  // Terminador de la cadena
+
+        // Convertir a hexadecimal
+        while (num != 0) {
+            int remainder = num % 16;
+            if (remainder < 10) {
+                hex[i] = remainder + '0';  // Si es de 0-9, convertimos a carácter '0'-'9'
+            } else {
+                hex[i] = remainder - 10 + 'A';  // Si es de 10-15, convertimos a 'A'-'F'
+            }
+            num = num / 16;
+            i--;
+        }
+      return hex;
+}
+
+void pf_routine(unsigned int error,unsigned int eip){
+
+  char* error_s = unsignedIntToHex(error);
+  char* eip_s = unsignedIntToHex(eip);
+  printk("Error de codigo ");
+  printk(error_s);
+  printk("\n");
+  printk("Error de instruccion ");
+  printk(eip_s);
+  printk("\n");
+  while(1);  
+}
+
+
+void clock_routine() {
+  zeos_show_clock();
 }
