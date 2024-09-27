@@ -6,6 +6,8 @@ int pid;
 
 int addASM(int, int);
 
+int write(int fd, char* buffer,int size);
+
 int __attribute__ ((__section__(".text.main")))
   main(void)
 {
@@ -16,6 +18,8 @@ int __attribute__ ((__section__(".text.main")))
     
     //int* numero = 0;
   	//*numero = 0;
+
+  	write(1,"goasdof",4);
   while(1) {
 
 

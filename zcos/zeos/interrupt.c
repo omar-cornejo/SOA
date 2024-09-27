@@ -76,6 +76,8 @@ void setTrapHandler(int vector, void (*handler)(), int maxAccessibleFromPL)
 void keyboard_handler();
 void pf_handler();
 void clock_handler();
+void write_msr(int register,int address);
+void syscall_handler_sysenter();
 
 
 void setIdt()
@@ -91,6 +93,11 @@ void setIdt()
   setInterruptHandler(14, pf_handler, 0);
   setInterruptHandler(32, clock_handler, 0);
 
+  //crear funcion
+  write_msr(0x174,__KERNEL_CS);
+  write_msr(0x175,__INITIAL_ESP);
+  write_msr(0x176,syscall_handler_sysenter);
+  
   set_idt_reg(&idtR);
 }
 
