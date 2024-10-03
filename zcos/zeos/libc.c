@@ -5,7 +5,7 @@
 #include <libc.h>
 
 #include <types.h>
-
+#include <errno.h>
 int errno;
 
 void itoa(int a, char *b)
@@ -43,3 +43,30 @@ int strlen(char *a)
   return i;
 }
 
+void perror(){
+    char buff[3];
+  switch(errno)
+  {
+    case ENOSYS:
+      write(1, "Syscall not implemented\n", 24);
+      break;
+    case EFAULT:
+      write(1, "Bad address\n", 12);
+      break;
+    case EINVAL:
+      write(1, "Invalid argument\n", 17);
+      break;
+    case EACCES:
+      write(1, "Permission denied\n", 18);
+      break;
+    case EBADF:
+      write(1, "Bad file number\n", 16);
+      break;
+    default:
+      itoa(errno, buff);
+      write(1, "Message for error ", 18);
+      write(1, buff, strlen (buff));
+      write(1, " not found\n", 11);
+      break;
+  }
+}

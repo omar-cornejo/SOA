@@ -4,6 +4,7 @@
 
 #include <asm.h>
 #include <segment.h>
+#include <errno.h>
 
 
 /**************************************************/
@@ -95,11 +96,14 @@ ENTRY(write_msr)
       #ecx == el primer parametro
       
       push %ebp
-      movl %ebp,%esp
-      movl %ecx, 8(%ebp)
-      movl %eax, 12(%ebp)
-      xor %edx, %edx
-      call wrmsr
+      movl %esp, %ebp
+
+      movl 8(%ebp), %ecx
+      movl $0, %edx
+      movl 12(%ebp), %eax 
+
+      wrmsr
+      
       movl %ebp,%esp
       popl %ebp
       ret 

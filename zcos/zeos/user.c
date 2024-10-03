@@ -3,23 +3,24 @@
 char buff[24];
 
 int pid;
+int zeos_ticks;
 
 int addASM(int, int);
 
+int zeos_ticks;
 int write(int fd, char* buffer,int size);
 
 int __attribute__ ((__section__(".text.main")))
   main(void)
 {
-    /* Next line, tries to move value 0 to CR3 register. This register is a privileged one, and so it will raise an exception */
-     /* __asm__ __volatile__ ("mov %0, %%cr3"::"r" (0) ); */
 
 	// int numero = addASM(0x42,0x666);
     
     //int* numero = 0;
   	//*numero = 0;
 
-  	write(1,"goasdof",4);
+  	  write(1, "\nhola\n", 24);
+      gettime();
   while(1) {
 
 

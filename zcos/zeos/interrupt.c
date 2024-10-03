@@ -12,6 +12,8 @@
 Gate idt[IDT_ENTRIES];
 Register    idtR;
 
+int zeos_ticks = 0;
+
 char char_map[] = {
     '\0', '\0', '1', '2', '3', '4', '5', '6',
     '7', '8', '9', '0', '\'', 'i', '\0', '\0',
@@ -76,7 +78,7 @@ void setTrapHandler(int vector, void (*handler)(), int maxAccessibleFromPL)
 void keyboard_handler();
 void pf_handler();
 void clock_handler();
-void write_msr(int register,int address);
+void write_msr(unsigned long register, unsigned long address);
 void syscall_handler_sysenter();
 
 
@@ -95,8 +97,8 @@ void setIdt()
 
   //crear funcion
   write_msr(0x174,__KERNEL_CS);
-  write_msr(0x175,__INITIAL_ESP);
-  write_msr(0x176,syscall_handler_sysenter);
+  write_msr(0x175,INITIAL_ESP);
+  write_msr(0x176,(unsigned long)syscall_handler_sysenter);
   
   set_idt_reg(&idtR);
 }
@@ -157,5 +159,6 @@ void pf_routine(unsigned int error,unsigned int eip){
 
 
 void clock_routine() {
+  zeos_ticks++;
   zeos_show_clock();
 }
