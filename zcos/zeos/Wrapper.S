@@ -3,25 +3,23 @@ ENTRY(write)
 
 	pushl %ebp
 	movl %esp,%ebp
-
-	# salvar registros
-	pushl %edx
-	pushl %ecx
+	push %ebx
 
 	# pasar parametros para el modo sistema
-	movl 8(%ebp), %ebx #tercer parametro
-	movl 12(%ebp), %ecx #segundo parametro
-	movl 16(%ebp), %edx #primer parametro
+	movl 0x8(%ebp), %edx #tercer parametro
+	movl 0xc(%ebp), %ecx #segundo parametro
+	movl 0x10(%ebp), %ebx #primer parametro
 
 
 	movl $4, %eax
 
-
+	# salvar registros
+	pushl %ecx
+	pushl %edx
+	
 	pushl $end_syscall
 	pushl %ebp
 	movl %esp,%ebp
-	
-
 	sysenter
 
 end_syscall:
@@ -38,30 +36,32 @@ end_syscall:
 	negl %eax # Negamos EAX para obtener el valor absoluto
 	movl %eax, errno
 	movl -1, %eax
+
 no_error: 
+	pop %ebx
 	movl %ebp,%esp
-    popl %ebp
+    pop %ebp
     ret 
+
+
 
 ENTRY(gettime)
 	pushl %ebp
 	movl %esp,%ebp
-
-	# Save to user stack
-	pushl %ecx
-	pushl %edx
-
+	push %ebx
 
 	# Now we need to put the identified of the system call in the EAX register
 	movl $10, %eax
 
 
+	# Save to user stack
+	pushl %ecx
+	pushl %edx
+
 	# Fake dynamic link?
 	push $gt_return
 	push %ebp
 	mov %esp,%ebp
-
-	# Entramos
 	sysenter
 
 gt_return:
@@ -72,10 +72,14 @@ gt_return:
 	popl %ecx
 	cmpl $0, %eax
 	jge gt_no_error
+
 	# Si hay error, preparamos el contexto para retornar correctamente el código.
 	negl %eax # Negamos EAX para obtener el valor absoluto
 	movl %eax, errno
 	movl -1, %eax
+
 gt_no_error:
-	popl %ebp
+	pop %ebx
+	movl %ebp,%esp
+    pop %ebp
 	ret

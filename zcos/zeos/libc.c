@@ -8,13 +8,15 @@
 #include <errno.h>
 int errno;
 
+
+int write(int fd, char* buffer,int size);
+
 void itoa(int a, char *b)
 {
   int i, i1;
   char c;
   
   if (a==0) { b[0]='0'; b[1]=0; return ;}
-  
   i=0;
   while (a>0)
   {

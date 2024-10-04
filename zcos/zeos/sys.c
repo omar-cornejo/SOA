@@ -58,14 +58,11 @@ char buffer_k[256];
 #define BUFFER_SIZE 256
 
   int sys_write(int fd, char *buffer, int size){
-
     // Si el valor es 1, es error.
     int fd_error = check_fd(fd, ESCRIPTURA);
     if(fd_error) return fd_error; // Si es error, retornem error (valor negatiu amb codi error).
-
     if(buffer == NULL) return -EFAULT; // EFAULT REPLACE
     if(size < 0) return -EINVAL; // EINVAL REPLACE
-
     int bytes = size;
     int written_bytes; 
 
