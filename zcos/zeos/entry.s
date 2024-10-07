@@ -19,7 +19,7 @@
       pushl %gs; pushl %fs; pushl %es; pushl %ds; pushl %eax; pushl %ebp; pushl %edi; pushl %esi; pushl %ebx; pushl %ecx; pushl %edx; movl $0x18, %edx; movl %edx, %ds; movl %edx, %es
       call keyboard_routine
       movb $0x20, %al; outb %al, $0x20;
-      popl %ebx; popl %ecx; popl %edx; popl %esi; popl %edi; popl %ebp; popl %eax; popl %ds; popl %es; popl %fs; popl %gs;
+      popl %edx; popl %ecx; popl %ebx; popl %esi; popl %edi; popl %ebp; popl %eax; popl %ds; popl %es; popl %fs; popl %gs;
 
       iret
 
@@ -31,7 +31,7 @@
       pushl %gs; pushl %fs; pushl %es; pushl %ds; pushl %eax; pushl %ebp; pushl %edi; pushl %esi; pushl %ebx; pushl %ecx; pushl %edx; movl $0x18, %edx; movl %edx, %ds; movl %edx, %es
       call clock_routine
       movb $0x20, %al; outb %al, $0x20;
-      popl %ebx; popl %ecx; popl %edx; popl %esi; popl %edi; popl %ebp; popl %eax; popl %ds; popl %es; popl %fs; popl %gs;
+      popl %edx; popl %ecx; popl %ebx; popl %esi; popl %edi; popl %ebp; popl %eax; popl %ds; popl %es; popl %fs; popl %gs;
       iret
 
 .globl write_msr; .type write_msr, @function; .align 0; write_msr:
@@ -43,10 +43,9 @@
       push %ebp
       movl %esp, %ebp
 
-      movl 8(%ebp), %ecx
+      movl 0x08(%ebp), %ecx
       movl $0, %edx
-      movl 12(%ebp), %eax
-
+      movl 0x0c(%ebp), %eax
       wrmsr
 
       movl %ebp,%esp
@@ -71,7 +70,7 @@ sysenter_err:
       movl $-38, %EAX
 sysenter_fin:
       movl %EAX, 0x18(%ESP)
-      popl %ebx; popl %ecx; popl %edx; popl %esi; popl %edi; popl %ebp; popl %eax; popl %ds; popl %es; popl %fs; popl %gs;
+      popl %edx; popl %ecx; popl %ebx; popl %esi; popl %edi; popl %ebp; popl %eax; popl %ds; popl %es; popl %fs; popl %gs;
       movl (%ESP), %EDX
       movl 12(%ESP), %ECX
       sti

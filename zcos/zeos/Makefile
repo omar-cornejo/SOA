@@ -42,7 +42,7 @@ LIBZEOS = -L . -l zeos
 USROBJ = \
 	libc.o \
 	addAsm.o \
-	Wrapper.o \
+	Wrapper.o 
 	# libjp.a \
 
 all:zeos.bin
@@ -71,7 +71,7 @@ entry.s: entry.S $(INCLUDEDIR)/asm.h $(INCLUDEDIR)/segment.h
 addAsm.s: addAsm.S $(INCLUDEDIR)/asm.h $(INCLUDEDIR)/segment.h
 	$(CPP) $(ASMFLAGS) -o $@ $<
 
-Wrapper.s: Wrapper.S $(INCLUDEDIR)/asm.h
+Wrapper.s: Wrapper.S $(INCLUDEDIR)/asm.h $(INCLUDEDIR)/segment.h
 	$(CPP) $(ASMFLAGS) -o $@ $<
 
 sys_call_table.s: sys_call_table.S $(INCLUDEDIR)/asm.h $(INCLUDEDIR)/segment.h

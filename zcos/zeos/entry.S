@@ -54,9 +54,9 @@
 
 /*** Reverse order of SAVE_ALL ***/
 #define RESTORE_ALL \
-      popl %ebx; \
-      popl %ecx; \
       popl %edx; \
+      popl %ecx; \
+      popl %ebx; \
       popl %esi; \
       popl %edi; \
       popl %ebp; \
@@ -98,10 +98,9 @@ ENTRY(write_msr)
       push %ebp
       movl %esp, %ebp
 
-      movl 8(%ebp), %ecx
+      movl 0x08(%ebp), %ecx
       movl $0, %edx
-      movl 12(%ebp), %eax 
-
+      movl 0x0c(%ebp), %eax 
       wrmsr
       
       movl %ebp,%esp

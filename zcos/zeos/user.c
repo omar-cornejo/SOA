@@ -1,10 +1,9 @@
 #include <libc.h>
 
-char buff[24];
+char buff[4];
 
 int pid;
 
-char buffer[10000];
 int addASM(int, int);
 
 int zeos_ticks;
@@ -17,16 +16,17 @@ int __attribute__ ((__section__(".text.main")))
 
 	// int numero = addASM(0x42,0x666);
     
-    //int* numero = 0;
-  	//*numero = 0;
+  //int* numero = 0;
+  //*numero = 0;
 
-  	write(1, "write bien\n",11);
-    
-  	
-    
+  write(1, "Ejemplo write\n",14);
+
+  int a = gettime();  
+  char *puntero = buff;
+  itoa(a,puntero);
+  if((write(1,"gettime:",8)) == -1) perror();
+  if((write(1,buff,strlen(buff))) == -1) perror();
   while(1) {
-  	int a = gettime();
-    itoa(a,buffer);
-  	write(1,buffer,strlen(buffer));
+    
   }
-}
+} 

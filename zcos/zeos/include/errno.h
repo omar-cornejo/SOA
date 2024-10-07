@@ -1,6 +1,7 @@
+// I got this definitions from the internet as I didn't find it anywhere.
+
 #ifndef _ERRNO_H_
 #define _ERRNO_H_
-
 
 #define EPERM        1  /* Operation not permitted */
 #define ENOENT       2  /* No such file or directory */
