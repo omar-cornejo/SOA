@@ -63,12 +63,14 @@ int sys_write(int fd, char * buffer, int size){
 	int fd_error = check_fd(fd, ESCRIPTURA);
 	if(fd_error) return fd_error; // Si es error, retornem error (valor negatiu amb codi error).
 
+	// Comprovem que el buffer sigui vàlid
 	if(buffer == NULL) return -EFAULT; // EFAULT REPLACE
 	if(size < 0) return -EINVAL; // EINVAL REPLACE
 
 	int bytes = size;
 	int written_bytes; 
 
+	// Copiar los bytes que caben en el buffer
 	while(bytes > BUFFER_SIZE){
 		copy_from_user(buffer+(size-bytes), buffer_k, BUFFER_SIZE);
 		written_bytes = sys_write_console(buffer_k, BUFFER_SIZE);
@@ -77,10 +79,11 @@ int sys_write(int fd, char * buffer, int size){
 		bytes = bytes-written_bytes;
 	}
 
-	// Copy the left bytes (if there are less than 256 bytes left)
+	// Copiar los bytes que sobran
 	copy_from_user(buffer+(size-bytes), buffer_k, bytes);
 	written_bytes = sys_write_console(buffer_k, bytes);
 	bytes = bytes-written_bytes;	
 
+	// Si no se han escrito todos los bytes, devolvemos error.
 	return size-bytes;
 }

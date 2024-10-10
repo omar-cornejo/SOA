@@ -45,6 +45,12 @@ void perror(){
     char buff[3];
   switch(errno)
   {
+    case EACCES:
+      write(1, "Permission denied\n", 18);
+      break;
+    case EBADF:
+      write(1, "Bad file number\n", 16);
+      break;
     case ENOSYS:
       write(1, "Syscall not implemented\n", 24);
       break;
@@ -53,12 +59,6 @@ void perror(){
       break;
     case EINVAL:
       write(1, "Invalid argument\n", 17);
-      break;
-    case EACCES:
-      write(1, "Permission denied\n", 18);
-      break;
-    case EBADF:
-      write(1, "Bad file number\n", 16);
       break;
     default:
       itoa(errno, buff);
