@@ -21,12 +21,15 @@ int __attribute__ ((__section__(".text.main")))
 
   write(1, "Ejemplo write\n",14);
 
-  int a = gettime();  
-  char *puntero = buff;
-  itoa(a,puntero);
-  if((write(1,"gettime:",8)) == -1) perror();
-  if((write(1,buff,strlen(buff))) == -1) perror();
+  
   while(1) {
+    
+    int a = gettime();  
+    char *puntero = buff;
+    itoa(a,puntero);
+    if((write(1,"gettime:",8)) == -1) perror();
+    if((write(1,buff,strlen(buff))) == -1) perror();
+    if((write(1,"\n",1)) == -1) perror();
     
   }
 } 

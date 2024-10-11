@@ -120,7 +120,7 @@ void keyboard_routine(){
 
 char hex[9];
 
-char* unsignedIntToHex(unsigned int num) {
+void unsignedIntToHex(unsigned int num) {
         // Un entero de 32 bits puede ser representado por 8 dígitos hexadecimales + 1 para el terminador nulo.
         int i = 7;    // Posición del último dígito hexadecimal
 
@@ -141,18 +141,16 @@ char* unsignedIntToHex(unsigned int num) {
             num = num / 16;
             i--;
         }
-      return hex;
+      printk(hex);
 }
 
 void pf_routine(unsigned int error,unsigned int eip){
 
-  char* error_s = unsignedIntToHex(error);
-  char* eip_s = unsignedIntToHex(eip);
-  printk("Error de codigo ");
-  printk(error_s);
+  printk("Erro de codigo:");
+  unsignedIntToHex(error);
   printk("\n");
-  printk("Error de instruccion ");
-  printk(eip_s);
+  printk("Erro de instruccion:");
+  unsignedIntToHex(eip);
   printk("\n");
   while(1);  
 }
