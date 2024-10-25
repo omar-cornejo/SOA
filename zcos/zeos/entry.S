@@ -108,6 +108,9 @@ ENTRY(write_msr)
       ret 
 
 
+
+
+
 ENTRY(syscall_handler_sysenter)
       push $__USER_DS
       push %EBP // User stack address

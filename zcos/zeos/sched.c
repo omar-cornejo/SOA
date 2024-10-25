@@ -12,7 +12,7 @@ union task_union task[NR_TASKS]
 #if 1
 struct task_struct *list_head_to_task_struct(struct list_head *l)
 {	
-  return (struct task_struct *)((unsigned int)l & 0xfffff000);
+  return (struct task_struct *)((unsigned int)l);
 
   //return list_entry( l, struct task_struct, list);
 }
@@ -23,6 +23,11 @@ extern struct list_head blocked;
 struct list_head freequeue;
 
 struct list_head readyqueue;
+
+struct task_struct * idle_task;
+
+void write_msr(unsigned long register, unsigned long address);
+
 
 /* get_DIR - Returns the Page Directory address for task 't' */
 page_table_entry * get_DIR (struct task_struct *t) 
@@ -60,47 +65,63 @@ void cpu_idle(void)
 
 void init_idle (void)
 {
+	if(!list_empty(&freequeue)) {
+		struct list_head *siguiente = list_first(&freequeue);
+		list_del(siguiente);
+		struct task_struct * nuevo_task_struck = list_head_to_task_struct(siguiente);
+		nuevo_task_struck->PID = 0;
+		allocate_DIR(nuevo_task_struck);
+		union task_union* libre = (union task_union*) nuevo_task_struck;
+		libre->stack[KERNEL_STACK_SIZE - 1] = (unsigned long) cpu_idle;
+		libre->stack[KERNEL_STACK_SIZE - 2] = (unsigned long) 0;
+		nuevo_task_struck->kernel_esp = (unsigned int)&libre->stack[KERNEL_STACK_SIZE - 2];
+		idle_task = nuevo_task_struck; 
+	}
+
 
 }
 
 void init_task1(void)
 {
+
+	if(!list_empty(&freequeue)) {
+		struct list_head *siguiente = list_first(&freequeue);
+		list_del(siguiente);
+		struct task_struct * nuevo_task_struck = list_head_to_task_struct(siguiente);
+		nuevo_task_struck->PID = 1;
+		allocate_DIR(nuevo_task_struck);
+		set_user_pages(nuevo_task_struck);
+
+
+
+		union task_union* libre = (union task_union*) nuevo_task_struck;
+		write_msr(0x175,(unsigned int)&libre->stack);
+		set_cr3(nuevo_task_struck->dir_pages_baseAddr);
+	}
+
 }
 
 
 void init_sched()
 {
-	freequeue = task[0].task.list;
-	struct list_head aux = freequeue;
-
-	for (int i = 1; i < NR_TASKS; ++i)
-	{
-		list_add_tail()
-	}
-
-	/*
-	for (int i = 0; i < NR_TASKS; i++)
-	{
-		//idle process
-		if(i == 0) {
-
-			freequeue = task[0].task.list;
-			aux = freequeue;
-		}
-		else {
-			//ir metiendo los procesos
-			aux.next = &task[i].task.list;
-			aux = *aux.next;
-			aux.prev = &task[i-1].task.list;
-			 	
-		}
-		
-	}
-	aux.next = &task[0].task.list;
-	*/
-	//inicializar readyqueue
+	INIT_LIST_HEAD(&freequeue);
 	INIT_LIST_HEAD(&readyqueue);
+	for (int i = 0; i < NR_TASKS; ++i)
+	{
+		list_add_tail(&task[i].task.list, &freequeue);
+		//(list) -> <- . . .  new ->  <- (list)
+	}
+
+	
 }
+
+void inner_task_switch(union task_union*t) {
+
+	t->
+
+}
+
+
 
 struct task_struct* current()
 {
