@@ -96,3 +96,49 @@ gt_no_error:
 	movl %ebp,%esp
     popl %ebp
 	ret
+
+ENTRY(getpid)
+	push %ebp
+	movl %esp,%ebp
+
+	pushl %ebx
+	pushl %esi
+	pushl %edi
+
+
+	# salvar registros
+	pushl %ecx
+	pushl %edx
+
+	movl $20,%eax
+
+	pushl $getpid_return
+	pushl %ebp
+	movl %esp,%ebp
+	sysenter
+
+getpid_return:
+	popl %ebp
+	addl $4, %esp
+	popl %edx
+	popl %ecx
+
+	popl %edi
+	popl %esi
+	popl %ebx
+	cmpl $0, %eax
+	jge getpid_no_error
+
+	negl %eax # Negamos EAX para obtener el valor absoluto
+	movl %eax, errno
+	movl -1, %eax
+
+getpid_no_error:
+	movl %ebp,%esp
+    popl %ebp
+	ret	
+
+
+
+
+

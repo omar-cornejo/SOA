@@ -14,17 +14,12 @@ ENTRY(task_switch)
 
 	call inner_task_switch	
 
+	addl $4,%esp
+
 	popl %ebx
 	popl %edi
 	popl %esi
 
 	movl %ebp,%esp
 	popl %ebp
-
 	ret
-
-ENTRY(inner_task_switch)
-	pushl %ebp
-	movl %esp, %ebp
-
-	movl  (%ebp),%esp

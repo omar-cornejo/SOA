@@ -66,15 +66,35 @@ void cpu_idle(void)
 void init_idle (void)
 {
 	if(!list_empty(&freequeue)) {
+		
+		// Get the first element from the freequeue
 		struct list_head *siguiente = list_first(&freequeue);
+		
+		// Remove the element from the freequeue
 		list_del(siguiente);
+		
+		// Convert the list_head to a task_struct
 		struct task_struct * nuevo_task_struck = list_head_to_task_struct(siguiente);
+		
+		// Set the PID of the new task to 0 (idle task)
 		nuevo_task_struck->PID = 0;
+		
+		// Allocate a page directory for the new task
 		allocate_DIR(nuevo_task_struck);
+		
+		// Cast the task_struct to a task_union
 		union task_union* libre = (union task_union*) nuevo_task_struck;
+		
+		// Set the last entry in the stack to point to the cpu_idle function
 		libre->stack[KERNEL_STACK_SIZE - 1] = (unsigned long) cpu_idle;
+		
+		// Set the second to last entry in the stack to 0
 		libre->stack[KERNEL_STACK_SIZE - 2] = (unsigned long) 0;
-		nuevo_task_struck->kernel_esp = (unsigned int)&libre->stack[KERNEL_STACK_SIZE - 2];
+		
+		// Set the kernel_esp to point to the second to last entry in the stack
+		libre-> task.kernel_esp = (unsigned long) &libre->stack[KERNEL_STACK_SIZE - 2];
+		
+		// Set the idle_task pointer to the new task
 		idle_task = nuevo_task_struck; 
 	}
 
@@ -85,19 +105,40 @@ void init_task1(void)
 {
 
 	if(!list_empty(&freequeue)) {
+		// Get the first element from the freequeue
 		struct list_head *siguiente = list_first(&freequeue);
+		
+		// Remove the element from the freequeue
 		list_del(siguiente);
+		
+		// Convert the list_head to a task_struct
 		struct task_struct * nuevo_task_struck = list_head_to_task_struct(siguiente);
+		
+		// Set the PID of the new task to 1 (task 1)
 		nuevo_task_struck->PID = 1;
+		
+		// Allocate a page directory for the new task
 		allocate_DIR(nuevo_task_struck);
+		
+		// Set up user pages for the new task
 		set_user_pages(nuevo_task_struck);
-
-
-
+		
+		// Cast the task_struct to a task_union
 		union task_union* libre = (union task_union*) nuevo_task_struck;
-		write_msr(0x175,(unsigned int)&libre->stack);
+		
+		// Set the last entry in the stack to point to the cpu_idle function
+		tss.esp0 = KERNEL_ESP(libre);
+
+		// Write the address of the stack to the model-specific register (MSR)
+		write_msr(0x175, (int)tss.esp0);
+		
+		// Set the CR3 register to the base address of the page directory
 		set_cr3(nuevo_task_struck->dir_pages_baseAddr);
+
+		
 	}
+
+	
 
 }
 
@@ -117,8 +158,53 @@ void init_sched()
 
 void inner_task_switch(union task_union*t) {
 
-	t->
+	// Set the kernel stack pointer to the kernel_esp of the task
+	tss.esp0 = KERNEL_ESP(t);
 
+	// Write the address of the stack to the model-specific register (MSR)
+	write_msr(0x175, (int)tss.esp0);
+
+	// Set the CR3 register to the base address of the page directory
+	set_cr3(t->task.dir_pages_baseAddr);
+
+
+	//La primera variable es %0, la segunda %1, la tercera %2, etc.
+	
+	//Guarda EBP al PCB
+	__asm__ __volatile__(
+		"pushl %%ebp\n\t"
+		:
+	);
+	
+	//Guarda ESP en EBP
+	__asm__ __volatile__(
+		"movl %%esp, %%ebp\n\t"
+		:
+	);
+
+
+	// Cambiar valor de Kernel_ESP al ESP actual
+	__asm__ __volatile__(
+		"movl %%esp, %0\n\t"
+		// "=g" indica que el operando entre paréntesis se usa como fuente
+		: "=g" (task->task.kernel_esp)
+		:
+		);
+
+
+	// Restaura EBP de la pila
+	__asm__ __volatile__(
+		"popl %%ebp\n\t"
+		:
+		:
+	);
+
+	// Salta a la dirección de retorno
+	__asm__ __volatile__(
+		"ret\n\t"
+		:
+		:
+	);
 }
 
 

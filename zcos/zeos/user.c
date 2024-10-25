@@ -19,8 +19,21 @@ int __attribute__ ((__section__(".text.main")))
   //int* numero = 0;
   //*numero = 0;
 
-  write(1, "Ejemplo write\n",14);
 
+  int bytes;
+
+  bytes = write(1, "Ejemplo write\n",14);
+  if(bytes == -1) perror();
+
+  bytes = write(1, "Ahora muestro mi pid: ",22);
+  if(bytes == -1) perror();
+
+  int pid = getpid();
+  itoa(pid,buff);
+  bytes = write(1,buff,strlen(buff));
+  if(bytes == -1) perror();
+  
+  
   
   while(1) {
     
