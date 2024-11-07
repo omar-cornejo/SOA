@@ -145,3 +145,44 @@ getpid_no_error:
  movl %ebp,%esp
     popl %ebp
  ret
+
+.globl fork; .type fork, @function; .align 0; fork:
+ push %ebp
+ movl %esp,%ebp
+
+ pushl %ebx
+ pushl %esi
+ pushl %edi
+
+
+ # salvar registros
+ pushl %ecx
+ pushl %edx
+
+ movl $2,%eax
+
+ pushl $fork
+ pushl %ebp
+ movl %esp,%ebp
+ sysenter
+
+fork_return:
+ popl %ebp
+ addl $4, %esp
+ popl %edx
+ popl %ecx
+
+ popl %edi
+ popl %esi
+ popl %ebx
+ cmpl $0, %eax
+ jge fork_no_error
+
+ negl %eax # Negamos EAX para obtener el valor absoluto
+ movl %eax, errno
+ movl -1, %eax
+
+fork_no_error:
+ movl %ebp,%esp
+    popl %ebp
+ ret

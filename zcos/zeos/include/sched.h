@@ -46,6 +46,10 @@ void task_switch(union task_union*t);
 
 void inner_task_switch(union task_union*t);
 
+unsigned int store_ebp_in_pcb();
+
+void change_stack(unsigned int esp);
+
 struct task_struct *list_head_to_task_struct(struct list_head *l);
 
 int allocate_DIR(struct task_struct *t);

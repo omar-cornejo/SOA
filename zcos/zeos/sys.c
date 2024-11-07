@@ -35,14 +35,9 @@ int sys_getpid()
 	return current()->PID;
 }
 
-int sys_fork()
-{
-  int PID=-1;
+extern struct list_head freequeue;
 
-  // creates the child process
-  
-  return PID;
-}
+
 
 void sys_exit()
 {  
@@ -57,33 +52,38 @@ int sys_gettime(){
 char buffer_k[256];
 #define BUFFER_SIZE 256
 
-int sys_write(int fd, char * buffer, int size){
 
-	// Si el valor es 1, es error.
-	int fd_error = check_fd(fd, ESCRIPTURA);
-	if(fd_error) return fd_error; // Si es error, retornem error (valor negatiu amb codi error).
+int sys_write(int fd, char *buffer, int size) {
+    // Verificar si el descriptor de archivo es válido
+    int fd_error = check_fd(fd, ESCRIPTURA);
+    if (fd_error) return fd_error; // Si hay un error, retorna el código de error
 
-	// Comprovem que el buffer sigui vàlid
-	if(buffer == NULL) return -EFAULT; // EFAULT REPLACE
-	if(size < 0) return -EINVAL; // EINVAL REPLACE
+    // Verificar si el buffer es válido
+    if (buffer == NULL) return -EFAULT; // Reemplazo de EFAULT
+    if (size < 0) return -EINVAL; // Reemplazo de EINVAL
 
-	int bytes = size;
-	int written_bytes; 
+    // Usar access_ok para verificar si el buffer de usuario es accesible
+    if (!access_ok(VERIFY_WRITE, buffer, size)) {
+        return -EFAULT; // Retorna error si el acceso a la memoria es inválido
+    }
 
-	// Copiar los bytes que caben en el buffer
-	while(bytes > BUFFER_SIZE){
-		copy_from_user(buffer+(size-bytes), buffer_k, BUFFER_SIZE);
-		written_bytes = sys_write_console(buffer_k, BUFFER_SIZE);
-		
-		buffer = buffer+BUFFER_SIZE;
-		bytes = bytes-written_bytes;
-	}
+    int bytes = size;
+    int written_bytes;
 
-	// Copiar los bytes que sobran
-	copy_from_user(buffer+(size-bytes), buffer_k, bytes);
-	written_bytes = sys_write_console(buffer_k, bytes);
-	bytes = bytes-written_bytes;	
+    // Copiar los bytes que caben en el buffer
+    while (bytes > BUFFER_SIZE) {
+        copy_from_user(buffer + (size - bytes), buffer_k, BUFFER_SIZE);
+        written_bytes = sys_write_console(buffer_k, BUFFER_SIZE);
 
-	// Si no se han escrito todos los bytes, devolvemos error.
-	return size-bytes;
+        buffer = buffer + BUFFER_SIZE;
+        bytes = bytes - written_bytes;
+    }
+
+    // Copiar los bytes que sobran
+    copy_from_user(buffer + (size - bytes), buffer_k, bytes);
+    written_bytes = sys_write_console(buffer_k, bytes);
+    bytes = bytes - written_bytes;
+
+    // Si no se han escrito todos los bytes, devolvemos error.
+    return size - bytes;
 }

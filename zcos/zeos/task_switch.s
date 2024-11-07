@@ -11,23 +11,54 @@
 
 
 .globl task_switch; .type task_switch, @function; .align 0; task_switch:
+
+    pushl %ebp
+    movl %esp, %ebp
+
+
+    pushl %esi
+    pushl %edi
+    pushl %ebx
+
+
+    pushl 8(%ebp)
+
+
+    call inner_task_switch
+
+
+    addl $4, %esp
+
+
+    popl %ebx
+    popl %edi
+    popl %esi
+
+
+    movl %ebp, %esp
+    popl %ebp
+    ret
+
+.globl store_ebp_in_pcb; .type store_ebp_in_pcb, @function; .align 0; store_ebp_in_pcb:
+
  pushl %ebp
  movl %esp, %ebp
 
- pushl %esi
- pushl %edi
- pushl %ebx
 
- pushl 8(%ebp)
+ movl 8(%ebp), %eax
 
- call inner_task_switch
 
- addl $4,%esp
+ popl %ebp
+ ret
 
- popl %ebx
- popl %edi
- popl %esi
+.globl change_stack; .type change_stack, @function; .align 0; change_stack:
 
- movl %ebp,%esp
+ pushl %ebp
+ movl %esp, %ebp
+
+
+ movl 8(%ebp), %esp
+
+
  popl %ebp
  ret

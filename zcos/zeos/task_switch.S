@@ -3,23 +3,54 @@
 
 
 ENTRY(task_switch)
+    // Guardar el valor de %ebp y establecer el nuevo marco de pila
+    pushl %ebp
+    movl %esp, %ebp
+
+    // Guardar los registros que podrían ser modificados
+    pushl %esi
+    pushl %edi
+    pushl %ebx
+
+    // Pasar el puntero de la nueva tarea a la pila
+    pushl 8(%ebp)
+
+    // Llamar a la función que realiza el cambio de contexto interno
+    call inner_task_switch 
+
+    // Ajustar el puntero de pila después de la llamada
+    addl $4, %esp
+
+    // Restaurar los registros guardados
+    popl %ebx
+    popl %edi
+    popl %esi
+
+    // Restaurar el marco de pila anterior
+    movl %ebp, %esp
+    popl %ebp
+    ret
+
+ENTRY(store_ebp_in_pcb)
+	// Guardar el contexto actual
 	pushl %ebp
 	movl %esp, %ebp
 
-	pushl %esi
-	pushl %edi
-	pushl %ebx
+	// Mover el valor en 8(%ebp) a EAX para retornar
+	movl 8(%ebp), %eax
 
-	pushl 8(%ebp)
+	// Restaurar el contexto y retornar
+	popl %ebp
+	ret
 
-	call inner_task_switch	
+ENTRY(change_stack)
+	// Guardar el contexto actual
+	pushl %ebp
+	movl %esp, %ebp
 
-	addl $4,%esp
+	// Mover el valor en 8(%ebp) a esp
+	movl 8(%ebp), %esp
 
-	popl %ebx
-	popl %edi
-	popl %esi
-
-	movl %ebp,%esp
+	// Restaurar el contexto y retornar
 	popl %ebp
 	ret

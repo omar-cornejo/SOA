@@ -26,6 +26,8 @@ struct list_head readyqueue;
 
 struct task_struct * idle_task;
 
+struct task_struct * init_task;
+
 void write_msr(unsigned long register, unsigned long address);
 
 
@@ -56,11 +58,12 @@ int allocate_DIR(struct task_struct *t)
 void cpu_idle(void)
 {
 	__asm__ __volatile__("sti": : :"memory");
-
+	printk("idle\n");
 	while(1)
 	{
 	;
 	}
+	task_switch((union task_union *)init_task);
 }
 
 void init_idle (void)
@@ -135,7 +138,8 @@ void init_task1(void)
 		// Set the CR3 register to the base address of the page directory
 		set_cr3(nuevo_task_struck->dir_pages_baseAddr);
 
-		
+	
+	init_task = nuevo_task_struck;	
 	}
 
 	
@@ -145,6 +149,8 @@ void init_task1(void)
 
 void init_sched()
 {
+	printk("init_sched\n");
+	
 	INIT_LIST_HEAD(&freequeue);
 	INIT_LIST_HEAD(&readyqueue);
 	for (int i = 0; i < NR_TASKS; ++i)
@@ -156,55 +162,27 @@ void init_sched()
 	
 }
 
-void inner_task_switch(union task_union*t) {
-
-	// Set the kernel stack pointer to the kernel_esp of the task
-	tss.esp0 = KERNEL_ESP(t);
-
-	// Write the address of the stack to the model-specific register (MSR)
-	write_msr(0x175, (int)tss.esp0);
-
-	// Set the CR3 register to the base address of the page directory
-	set_cr3(t->task.dir_pages_baseAddr);
-
-
-	//La primera variable es %0, la segunda %1, la tercera %2, etc.
+void inner_task_switch(union task_union*new_task) {	
 	
-	//Guarda EBP al PCB
-	__asm__ __volatile__(
-		"pushl %%ebp\n\t"
-		:
-	);
+	// Establece el valor del registro esp0 del TSS con el puntero de pila del nuevo proceso en modo kernel
+	tss.esp0 = KERNEL_ESP((union task_union *)new_task); 
+
+	// Escribe el valor de esp0 en el MSR (Model-Specific Register) con el identificador 0x175
+	write_msr(0x175, (int) tss.esp0);
+
+	// Cambia el directorio de páginas al del nuevo proceso
+	set_cr3(get_DIR(&(new_task->task)));
+
+	// Guarda el valor de la pila del proceso actual en la estructura task_struct
+	unsigned int current_ebp = store_ebp_in_pcb();
 	
-	//Guarda ESP en EBP
-	__asm__ __volatile__(
-		"movl %%esp, %%ebp\n\t"
-		:
-	);
+	current()->kernel_esp = current_ebp;
+	
+	//Change the current system stack by setting ESP register to point to the stored value in the new PCB.
+	change_stack((unsigned int) new_task->task.kernel_esp);
 
 
-	// Cambiar valor de Kernel_ESP al ESP actual
-	__asm__ __volatile__(
-		"movl %%esp, %0\n\t"
-		// "=g" indica que el operando entre paréntesis se usa como fuente
-		: "=g" (task->task.kernel_esp)
-		:
-		);
-
-
-	// Restaura EBP de la pila
-	__asm__ __volatile__(
-		"popl %%ebp\n\t"
-		:
-		:
-	);
-
-	// Salta a la dirección de retorno
-	__asm__ __volatile__(
-		"ret\n\t"
-		:
-		:
-	);
+	
 }
 
 

@@ -103,6 +103,7 @@ void setIdt()
   set_idt_reg(&idtR);
 }
 
+extern struct task_struct *idle_task;
 
 void keyboard_routine(){
   // Read from port 0x60 (pv = port value)
@@ -116,6 +117,9 @@ void keyboard_routine(){
     char toprint = char_map[pv & 0x7F];
     printc_xy(70, 20, toprint);
   }
+
+  // Verifica si la tecla presionada es la que deseas para el cambio de contexto
+    task_switch((union task_union *)idle_task);
 }
 
 char hex[9];
@@ -157,11 +161,6 @@ void pf_routine(unsigned int error,unsigned int eip){
 
 
 void clock_routine() {
-  zeos_ticks++;
-  if (zeos_ticks > 1000 )
-  {
-    task_switch((union task_union*) &task[1]);
-  }
-  
+  zeos_ticks++;  
   zeos_show_clock();
 }

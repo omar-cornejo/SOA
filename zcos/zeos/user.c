@@ -22,16 +22,35 @@ int __attribute__ ((__section__(".text.main")))
 
   int bytes;
 
-  bytes = write(1, "Ejemplo write\n",14);
-  if(bytes == -1) perror();
+  // bytes = write(1, "Ejemplo write\n",14);
+  // if(bytes == -1) perror();
 
-  bytes = write(1, "Ahora muestro mi pid: ",22);
-  if(bytes == -1) perror();
+  // bytes = write(1, "Ahora muestro mi pid: ",22);
+  // if(bytes == -1) perror();
 
-  int pid = getpid();
-  itoa(pid,buff);
-  bytes = write(1,buff,strlen(buff));
-  if(bytes == -1) perror();
+  // int pid = getpid();
+  // itoa(pid,buff);
+  // bytes = write(1,buff,strlen(buff));
+  // if(bytes == -1) perror();
+  // bytes = write(1,"\n",1);
+  // if(bytes == -1) perror();
+
+  // bytes = write(1, "Soy el padre con pid: ",22);
+  // if(bytes == -1) perror();
+  // bytes = write(1,"\n",1);
+  // if(bytes == -1) perror();
+  // int pid_fork = fork();
+  // itoa(pid_fork,buff);
+  // if(pid_fork == 0) {
+  //   bytes = write(1,"Soy el hijo con pid: ",21);
+  //   if(bytes == -1) perror();
+  //   bytes = write(1,buff,strlen(buff));
+  //   if(bytes == -1) perror();
+  // }
+  // else {
+  //   bytes = write(1,buff,strlen(buff)); 
+  //   if(bytes == -1) perror();
+  // }
   
   
   
