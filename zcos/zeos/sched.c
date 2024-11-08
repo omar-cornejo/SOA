@@ -12,8 +12,7 @@ union task_union task[NR_TASKS]
 #if 1
 struct task_struct *list_head_to_task_struct(struct list_head *l)
 {	
-  return (struct task_struct *)((unsigned int)l);
-
+    return (struct task_struct *)((unsigned int)l - (unsigned int)&(((struct task_struct *)0)->list));
   //return list_entry( l, struct task_struct, list);
 }
 #endif
@@ -59,11 +58,100 @@ void cpu_idle(void)
 {
 	__asm__ __volatile__("sti": : :"memory");
 	printk("idle\n");
+	task_switch((union task_union *)init_task);
 	while(1)
 	{
 	;
 	}
-	task_switch((union task_union *)init_task);
+	 
+}
+
+void update_sched_data_rr(void) {
+    struct task_struct *current_task = current();
+    current_task->quantum--;
+
+    if (current_task->quantum <= 0) {
+        // Quantum expired, scheduling decision needed
+        current_task->quantum = 0; // Ensure it doesn't go negative
+    }
+}
+
+void update_process_state_rr(struct task_struct *t, struct list_head *dst_queue) {
+    if (t->state != ST_RUN) {
+        list_del(&t->list); // Remove from current queue if not running
+    }
+
+    if (dst_queue != NULL) {
+        list_add_tail(&t->list, dst_queue); // Add to new queue
+    }
+
+    // Update state based on the destination queue
+    if (dst_queue == &readyqueue) {
+        t->state = ST_READY;
+    } else if (dst_queue == &freequeue) {
+        t->state = ST_FREE;
+    } else {
+        t->state = ST_BLOCKED;
+    }
+}
+
+int needs_sched_rr(void) {
+    struct task_struct *current_task = current();
+
+    // Check if the current process's quantum has expired
+    if (current_task->quantum == 0) {
+        return 1; // Context switch needed
+    }
+
+    return 0; // No context switch needed
+}
+
+
+void sched_next_rr(void) {
+    if (list_empty(&readyqueue)) {
+        // No other process to schedule, switch to idle
+        task_switch((union task_union *)idle_task);
+    } else {
+        // Select the next process from the ready queue
+        struct list_head *next_ready = list_first(&readyqueue);
+        struct task_struct *next_task = list_head_to_task_struct(next_ready);
+        list_del(next_ready); // Remove the process from the ready queue
+
+        next_task->state = ST_RUN; // Set the new process state to running
+
+        // Restore the process's quantum before switching
+        set_quantum(next_task, DEFAULT_QUANTUM);
+
+        // Perform context switch
+        task_switch((union task_union *)next_task);
+    }
+}
+
+
+int get_quantum(struct task_struct *t) {
+    return t->quantum; // Devuelve el quantum de la tarea
+}
+
+void set_quantum(struct task_struct *t, int new_quantum) {
+    t->quantum = new_quantum; // Modifica el quantum de la tarea
+}
+
+void schedule(void) {
+    // Update the scheduling data for the current process
+    update_sched_data_rr();
+
+    // Check if a context switch is needed
+    if (needs_sched_rr()) {
+        // Update the state of the current process
+        struct task_struct *current_task = current();
+        if (current_task != idle_task) {
+            // Move the current process to the end of the ready queue
+            update_process_state_rr(current_task, &readyqueue);
+        }
+
+        // Select the next process to run and perform a context switch
+        sched_next_rr();
+    }
 }
 
 void init_idle (void)
@@ -81,6 +169,7 @@ void init_idle (void)
 		
 		// Set the PID of the new task to 0 (idle task)
 		nuevo_task_struck->PID = 0;
+		nuevo_task_struck->quantum = 0;
 		
 		// Allocate a page directory for the new task
 		allocate_DIR(nuevo_task_struck);
@@ -119,6 +208,7 @@ void init_task1(void)
 		
 		// Set the PID of the new task to 1 (task 1)
 		nuevo_task_struck->PID = 1;
+		nuevo_task_struck->quantum = 0;
 		
 		// Allocate a page directory for the new task
 		allocate_DIR(nuevo_task_struck);
@@ -148,9 +238,7 @@ void init_task1(void)
 
 
 void init_sched()
-{
-	printk("init_sched\n");
-	
+{	
 	INIT_LIST_HEAD(&freequeue);
 	INIT_LIST_HEAD(&readyqueue);
 	for (int i = 0; i < NR_TASKS; ++i)
@@ -165,13 +253,13 @@ void init_sched()
 void inner_task_switch(union task_union*new_task) {	
 	
 	// Establece el valor del registro esp0 del TSS con el puntero de pila del nuevo proceso en modo kernel
-	tss.esp0 = KERNEL_ESP((union task_union *)new_task); 
+	tss.esp0 = KERNEL_ESP(new_task); 
 
 	// Escribe el valor de esp0 en el MSR (Model-Specific Register) con el identificador 0x175
-	write_msr(0x175, (int) tss.esp0);
+	write_msr(0x175, (unsigned int) tss.esp0);
 
 	// Cambia el directorio de páginas al del nuevo proceso
-	set_cr3(get_DIR(&(new_task->task)));
+	set_cr3(new_task->task.dir_pages_baseAddr);
 
 	// Guarda el valor de la pila del proceso actual en la estructura task_struct
 	unsigned int current_ebp = store_ebp_in_pcb();
@@ -179,9 +267,7 @@ void inner_task_switch(union task_union*new_task) {
 	current()->kernel_esp = current_ebp;
 	
 	//Change the current system stack by setting ESP register to point to the stored value in the new PCB.
-	change_stack((unsigned int) new_task->task.kernel_esp);
-
-
+	change_stack(new_task->task.kernel_esp);
 	
 }
 

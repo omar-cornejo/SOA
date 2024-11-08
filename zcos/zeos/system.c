@@ -75,7 +75,7 @@ int __attribute__((__section__(".text.main")))
   printk("Omar Cornejo \n");
 
   printk_color("  SOA  GRUP 12L   \n");
-  printk("Kernel Loaded!    ");
+  printk("Kernel Loaded!\n");
 
 
   /* Initialize hardware data */

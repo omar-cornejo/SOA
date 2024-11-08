@@ -118,8 +118,10 @@ void keyboard_routine(){
     printc_xy(70, 20, toprint);
   }
 
-  // Verifica si la tecla presionada es la que deseas para el cambio de contexto
+  // Check if the key pressed is the one you want to change the context
+  if((pv & 0x7F) == 0x01){ // 0x01 = ESC
     task_switch((union task_union *)idle_task);
+  }
 }
 
 char hex[9];
@@ -163,4 +165,5 @@ void pf_routine(unsigned int error,unsigned int eip){
 void clock_routine() {
   zeos_ticks++;  
   zeos_show_clock();
+  schedule();
 }

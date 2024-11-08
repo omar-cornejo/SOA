@@ -32,15 +32,8 @@ ENTRY(task_switch)
     ret
 
 ENTRY(store_ebp_in_pcb)
-	// Guardar el contexto actual
-	pushl %ebp
-	movl %esp, %ebp
-
 	// Mover el valor en 8(%ebp) a EAX para retornar
-	movl 8(%ebp), %eax
-
-	// Restaurar el contexto y retornar
-	popl %ebp
+	movl %ebp, %eax
 	ret
 
 ENTRY(change_stack)

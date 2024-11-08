@@ -41,14 +41,7 @@
 
 .globl store_ebp_in_pcb; .type store_ebp_in_pcb, @function; .align 0; store_ebp_in_pcb:
 
- pushl %ebp
- movl %esp, %ebp
-
-
- movl 8(%ebp), %eax
-
-
- popl %ebp
+ movl %ebp, %eax
  ret
 
 .globl change_stack; .type change_stack, @function; .align 0; change_stack:
