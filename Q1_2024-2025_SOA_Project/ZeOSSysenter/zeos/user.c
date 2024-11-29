@@ -37,13 +37,6 @@ int __attribute__ ((__section__(".text.main")))
     /* Next line, tries to move value 0 to CR3 register. This register is a privileged one, and so it will raise an exception */
      /* __asm__ __volatile__ ("mov %0, %%cr3"::"r" (0) ); */
 
-  int pid2 = fork();
-
-  if(pid2 == 0) {
-    write(1,"holaaa",6);
-    exit();
-  }
-
 
     write(1,"\n",1);
     char* a = sbrk(4);
@@ -59,20 +52,16 @@ int __attribute__ ((__section__(".text.main")))
     write(1, a, 1);
     write(1,"\n",1);
 
+    
+
+  int pid = fork();
+  if(pid== 0) {
     int value = 42;
     *((int*)a) = value;
 
     int* ptr = (int*)a;  
     int stored_value = *ptr;
-
-  int pid = fork();
-  if(pid== 0) {
-    write(1,"Soy el hijo\n",12);
-    sbrk(0);
-    write(1, "Stored value: ", 15); 
     printnum(stored_value);      
-    write(1,"\n", 1);
-    write(1,"\n",1);
     exit();
   } else {
     a = sbrk(0);
