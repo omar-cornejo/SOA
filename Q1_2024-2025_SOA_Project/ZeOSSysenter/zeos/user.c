@@ -37,55 +37,87 @@ int __attribute__ ((__section__(".text.main")))
     /* Next line, tries to move value 0 to CR3 register. This register is a privileged one, and so it will raise an exception */
      /* __asm__ __volatile__ ("mov %0, %%cr3"::"r" (0) ); */
 
-  
-  
-  //   char* a = sbrk(4);
-  //   if (a == (char*)-1) {
+  int pid2 = fork();
+
+  if(pid2 == 0) {
+    write(1,"holaaa",6);
+    exit();
+  }
+
+
+    write(1,"\n",1);
+    char* a = sbrk(4);
+    if (a == (char*)-1) {
         
-  //       write(1,"Error",5);
-  //       return -1;
-  //   }
+        write(1,"Error",5);
+        return -1;
+    }
     
-  //   *a = 'b';
+    write(1,"El char en a vale:",18);
+    *a = 'b';
     
-  //   write(1, a, 1);
-  //   write(1,"\n",1);
+    write(1, a, 1);
+    write(1,"\n",1);
 
-  //   int value = 42;
-  //   *((int*)a) = value;
+    int value = 42;
+    *((int*)a) = value;
+
+    int* ptr = (int*)a;  
+    int stored_value = *ptr;
+
+  int pid = fork();
+  if(pid== 0) {
+    write(1,"Soy el hijo\n",12);
+    sbrk(0);
+    write(1, "Stored value: ", 15); 
+    printnum(stored_value);      
+    write(1,"\n", 1);
+    write(1,"\n",1);
+    exit();
+  } else {
+    a = sbrk(0);
+    a = sbrk(-4);
+    a = sbrk(0);
+    a = sbrk(-50000);
+    a = sbrk(0);
+    a = sbrk(5000);
+    a = sbrk(0);
+    a = sbrk(-50000);
+    a = sbrk(0);
+    a = sbrk(4097);
+    a = sbrk(0);
+    sbrk(100000);
+    sbrk(0);
+    sbrk(-5);
+    sbrk(0);    
+  }
+
     
-  //   int* ptr = (int*)a;  
-  //   int stored_value = *ptr;
-
-  //   write(1, "Stored value: ", 15); 
-  //   printnum(stored_value);      
-  //   write(1, "\n", 1);
-
-  //   * a = sbrk(0);
-  //   * a = sbrk(-4);
-  //   * a = sbrk(0);
-  //   * a = sbrk(-50000);
-
 
   // char spriteContent[] = {
-  //       'X', 'X', 'X',
-  //       'X', ' ', 'X',
-  //       'X', 'X', 'X', 
-  //   };
+  //   '*', '*', '*', ' o', 'o', 'o', 'o', 'o', 'o', 'o', 
+  //   '*', '*', '*',  '*', 'o', 'o', 'o', 'o', 'o', 'o',
+  //   'z', 'z', 'z', 'z', 'z', 'o', 'o', '*', 'X', '|',
+  //   '*', '*', '*', '*', '*', '*', '*', '*', 'X', '|',
+  //   '|', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', '|',
+  //   '|', '-', '-', '-', '-', '-', '-', '-', '-', '|',
+  //   '|', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', '|',
+  //   '-', '-', '-', '-', '-', '-', '-', '-', '-', '-'
+  // };
 
-  // Sprite sp = { 3, 3, spriteContent };
+  // Sprite sp = { 7, 10, spriteContent };
   // SetColor(7, 2);
   // gotoXY(10,10);
-  // spritePut(5, 5, &sp);
+  // spritePut(0, 0, &sp);
   // gotoXY(5, 5);
   // SetColor(5, 2); 
 
-  char b;
+  //char b;
 
   //threadCreate(111,0);
 
   while(1) {
-    if(getKey(&b) == 0) write(1,&b,1);
+    //if(getKey(&b) == 0) write(1,&b,1);
     
   }
 }
