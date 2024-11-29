@@ -54,12 +54,10 @@ void keyboard_routine() {
         unsigned char scancode = scan_code & 0x7F;
         extern char char_map[];
         char character = char_map[scancode];
-        circular_buffer[write_pointer] = scan_code;
-        write_pointer = (write_pointer + 1) % BUFFER_SIZE;
         if (buffer_count < BUFFER_SIZE) {
+            circular_buffer[write_pointer] = scan_code;
+            write_pointer = (write_pointer + 1) % BUFFER_SIZE;
             buffer_count++;
-        } else {
-            read_pointer = (read_pointer + 1) % BUFFER_SIZE;
         }
         printc_xy(0, 0, character);
     }

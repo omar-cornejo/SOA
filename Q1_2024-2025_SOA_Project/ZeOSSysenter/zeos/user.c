@@ -39,52 +39,53 @@ int __attribute__ ((__section__(".text.main")))
 
   
   
-    char* a = sbrk(4);
-    if (a == (char*)-1) {
+  //   char* a = sbrk(4);
+  //   if (a == (char*)-1) {
         
-        write(1,"Error",5);
-        return -1;
-    }
+  //       write(1,"Error",5);
+  //       return -1;
+  //   }
     
-    *a = 'b';
+  //   *a = 'b';
     
-    write(1, a, 1);
-    write(1,"\n",1);
+  //   write(1, a, 1);
+  //   write(1,"\n",1);
 
-    int value = 42;
-    *((int*)a) = value;
+  //   int value = 42;
+  //   *((int*)a) = value;
     
-    int* ptr = (int*)a;  
-    int stored_value = *ptr;
+  //   int* ptr = (int*)a;  
+  //   int stored_value = *ptr;
 
-    write(1, "Stored value: ", 15); 
-    printnum(stored_value);      
-    write(1, "\n", 1);
+  //   write(1, "Stored value: ", 15); 
+  //   printnum(stored_value);      
+  //   write(1, "\n", 1);
 
-    * a = sbrk(0);
-    * a = sbrk(-4);
-    * a = sbrk(0);
-    * a = sbrk(-50000);
+  //   * a = sbrk(0);
+  //   * a = sbrk(-4);
+  //   * a = sbrk(0);
+  //   * a = sbrk(-50000);
 
 
-  char spriteContent[] = {
-        'X', 'X', 'X',
-        'X', ' ', 'X',
-        'X', 'X', 'X', 
-    };
+  // char spriteContent[] = {
+  //       'X', 'X', 'X',
+  //       'X', ' ', 'X',
+  //       'X', 'X', 'X', 
+  //   };
 
-  Sprite sp = { 3, 3, spriteContent };
-  SetColor(7, 2);
-  gotoXY(10,10);
-  spritePut(5, 5, &sp);
-  gotoXY(5, 5);
-  SetColor(5, 2); 
+  // Sprite sp = { 3, 3, spriteContent };
+  // SetColor(7, 2);
+  // gotoXY(10,10);
+  // spritePut(5, 5, &sp);
+  // gotoXY(5, 5);
+  // SetColor(5, 2); 
 
+  char b;
 
   //threadCreate(111,0);
 
   while(1) {
-    //if(getKey(&b) == 0) write(1,&b,1);
+    if(getKey(&b) == 0) write(1,&b,1);
     
   }
 }
