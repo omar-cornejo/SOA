@@ -112,20 +112,56 @@ int sys_fork(void)
   {
     set_ss_pag(process_PT, PAG_LOG_INIT_CODE+pag, get_frame(parent_PT, PAG_LOG_INIT_CODE+pag));
   }
+
+  int heap_pages = 0;
+  if(current()->heap_ptr != NULL) {
+    heap_pages = (current()->heap_ptr - (char*)(L_USER_START + (NUM_PAG_CODE + NUM_PAG_DATA) * PAGE_SIZE)) / PAGE_SIZE + 1;
+    printk("Mi numero de paginas de heap es:");
+    printnum(heap_pages);
+    printk("\n");
+  } else printk("Heap no inicializado\n");
+  
+  
   /* Copy parent's DATA to child. We will use TOTAL_PAGES-1 as a temp logical page to map to */
   for (pag=NUM_PAG_KERNEL+NUM_PAG_CODE; pag<NUM_PAG_KERNEL+NUM_PAG_CODE+NUM_PAG_DATA; pag++)
   {
     /* Map one child page to parent's address space. */
-    set_ss_pag(parent_PT, pag+NUM_PAG_DATA, get_frame(process_PT, pag));
-    copy_data((void*)(pag<<12), (void*)((pag+NUM_PAG_DATA)<<12), PAGE_SIZE);
-    del_ss_pag(parent_PT, pag+NUM_PAG_DATA);
+    printk("Lo copiare en:");
+    printnum(pag+NUM_PAG_DATA+heap_pages);
+    printk("\n");
+    set_ss_pag(parent_PT, pag+NUM_PAG_DATA+heap_pages, get_frame(process_PT, pag));
+    copy_data((void*)(pag<<12), (void*)((pag+NUM_PAG_DATA+heap_pages)<<12), PAGE_SIZE);
+    del_ss_pag(parent_PT, pag+NUM_PAG_DATA+heap_pages);
   }
+
+  char *heap_ptr = current()->heap_ptr;
+
+  if (heap_ptr != NULL) {
+        int initial_logical_page = NUM_PAG_DATA + NUM_PAG_CODE + NUM_PAG_KERNEL;
+        int current_logical_page = (current()->heap_ptr - (char*)L_USER_START) / PAGE_SIZE + NUM_PAG_KERNEL;
+
+        while (initial_logical_page < current_logical_page + 1) {
+            int frame = get_frame(parent_PT, initial_logical_page);
+            int new_frame = alloc_frame();
+            if (new_frame == -1) {
+                return -ENOMEM;
+            }
+            set_ss_pag(process_PT, initial_logical_page, new_frame);
+            
+            copy_data((void*)(initial_logical_page<<12), (void*)((initial_logical_page+1)<<12), PAGE_SIZE);
+            
+            initial_logical_page++;
+        }
+        
+        uchild->task.heap_ptr = heap_ptr;
+  }else uchild->task.heap_ptr = NULL;
+
   /* Deny access to the child's memory space */
   set_cr3(get_DIR(current()));
 
   uchild->task.PID=++global_PID;
   uchild->task.state=ST_READY;
-  uchild->task.heap_ptr = NULL;
+  
 
   int register_ebp;		/* frame pointer */
   /* Map Parent's ebp to child's stack */
@@ -201,6 +237,20 @@ void sys_exit()
     del_ss_pag(process_PT, PAG_LOG_INIT_DATA+i);
   }
   
+  if (current()->heap_ptr != NULL) {
+        int initial_logical_page = NUM_PAG_DATA + NUM_PAG_CODE + NUM_PAG_KERNEL;
+        int current_logical_page = (current()->heap_ptr - (char*)L_USER_START) / PAGE_SIZE + NUM_PAG_KERNEL;
+
+        while (initial_logical_page < current_logical_page + 1) {
+            int frame = get_frame(process_PT, initial_logical_page);
+
+            free_frame(frame);
+            del_ss_pag(process_PT, initial_logical_page);
+            initial_logical_page++;
+        }
+        
+  }
+
   /* Free task_struct */
   list_add_tail(&(current()->list), &freequeue);
   
@@ -238,7 +288,7 @@ int sys_get_stats(int pid, struct stats *st)
   return -ESRCH; /*ESRCH */
 }
 
-#define BUFFER_SIZE 128
+#define BUFFER_SIZE 4
 extern char circular_buffer[];
 extern int write_pointer;
 extern int read_pointer;
@@ -270,6 +320,8 @@ char* sys_sbrk(int size) {
         sumador = size;
     }
 
+    if(size == 0 && heap_ptr_actual == NULL) return (char*)-1;
+
     if (heap_ptr_actual == NULL) {
         int new_ph_pag = alloc_frame();
         if (new_ph_pag == -1) {
@@ -286,58 +338,101 @@ char* sys_sbrk(int size) {
     }
 
     if (size > 0) {
-        while (sumador > 0) {
-            int available_space_in_current_page = PAGE_SIZE - (unsigned long)ts->heap_ptr % PAGE_SIZE;
 
+        printk("\n");
+        printk("Operación sumar:");
+        printnum(sumador);
+        printk("\n");
+
+        int allocated_pages[128];
+        int allocated_count = 0;
+        while (sumador > 0) {
+            printk("Sumador:");
+            printnum(sumador);
+            printk("\n");
+            int available_space_in_current_page = PAGE_SIZE - (unsigned long)ts->heap_ptr % PAGE_SIZE;
+            printk("Espacio en pagina actual:");
+            printnum(available_space_in_current_page);
+            printk("\n");
             if (sumador <= available_space_in_current_page) {
-                //printk("Me cabe en la pagina\n");
+                printk("Me cabe en la pagina\n");
                 ts->heap_ptr += sumador;
-                //printnum(ts->heap_ptr - size);
-                //printk("\n");
+                printk("Heap futuro:");
+                printnum(ts->heap_ptr);
+                printk("\n"); 
                 return ts->heap_ptr - size;
             } else {
-                //printk("Pido otra pagina\n");
+                printk("Pido otra pagina\n");
                 int new_ph_pag = alloc_frame();
-                if (new_ph_pag == -1) return NULL;
+                if (new_ph_pag == -1) {
+                  printnum(allocated_count);
+                  printk("\n");
+                  printk("Fin de paginas\n");
+                  //devolver todas las paginas demás
+                  page_table_entry* process_PT = get_PT(ts);
+                  for (int i = 0; i < allocated_count; i++) {
+                        free_frame(get_frame(process_PT,allocated_pages[i]));
+                        process_PT[allocated_pages[i]].entry = 0;
+                        del_ss_pag(process_PT, allocated_pages[i]);
+                  }
+                  
+                  ts->heap_ptr -= PAGE_SIZE*allocated_count;
+                   
+                  return (char*)-1;
+                }
 
                 page_table_entry *process_PT = get_PT(ts);
                 int current_logical_page = (ts->heap_ptr - (char*)L_USER_START) / PAGE_SIZE + NUM_PAG_KERNEL;
                 set_ss_pag(process_PT, current_logical_page + 1, new_ph_pag);
                 ts->heap_ptr += PAGE_SIZE;
+                allocated_pages[allocated_count++] = new_ph_pag;
                 sumador -= PAGE_SIZE;
+
             }
         }
-        return ts->heap_ptr - size;
+        
+        
     } else if (size < 0) {
-        if (ts->heap_ptr == (char*)L_USER_START) {
+        if (ts->heap_ptr == (char*) (L_USER_START + (NUM_PAG_CODE + NUM_PAG_DATA) * PAGE_SIZE)) {
+            printk("Error limite minimo de heap");
             return (char*)-1;
         }
+        
+        printk("\n");
+        printk("Operación restar:");
+        printnum(restador);
+        printk("\n");
 
         int prev_logical_page = (ts->heap_ptr - (char*)L_USER_START) / PAGE_SIZE + NUM_PAG_KERNEL;
-        //printnum(prev_logical_page);
-        //printk("\n");
+        printk("Pagina logica actual:");
+        printnum(prev_logical_page);
+        printk("\n");
 
         while (restador > 0) {
             int space_in_current_page = PAGE_SIZE - (unsigned long)ts->heap_ptr % PAGE_SIZE;
-            //printnum(space_in_current_page);
-            //printk("\n");
+            printk("Espacio en pagina actual:");
+            printnum(space_in_current_page);
+            printk("\n");
+
+            ts->heap_ptr -= restador;
+            int current_logical_page = (ts->heap_ptr - (char*)L_USER_START) / PAGE_SIZE + NUM_PAG_KERNEL;
+            printk("Pagina logica futura:");
+            printnum(current_logical_page);
+            printk("\n");
+
+            printk("Heap futuro:");
+            printnum(ts->heap_ptr);
+            printk("\n");
+            // comprobar que rango size no modifica otras secciones, limit del heap 0x11c 
+            if(current_logical_page < 0x11c) {
+                  printk("Operación invalida\n");
+                  ts->heap_ptr += restador;
+                  return (char*)-1;
+            }
 
             if (restador <= space_in_current_page) {
-                ts->heap_ptr -= restador;
-                //printnum(ts->heap_ptr + restador);
-                //printk("\n");
                 return ts->heap_ptr + restador;
             } else {
-                ts->heap_ptr -= space_in_current_page;
-                int current_logical_page = (ts->heap_ptr - (char*)L_USER_START) / PAGE_SIZE + NUM_PAG_KERNEL;
-                //printnum(current_logical_page);
-                //printk("\n");
-
-                if(current_logical_page <= 0x11b) {
-                  ts->heap_ptr += space_in_current_page;
-                  return (char*)-1;
-                }
-
                 page_table_entry* process_PT = get_PT(ts);
                 int frame = process_PT[prev_logical_page].bits.pbase_addr;
                 free_frame(frame);
@@ -348,9 +443,11 @@ char* sys_sbrk(int size) {
             }
         }
     }
-
-    //printnum(heap_ptr_actual);
-    //printk("\n");
+    
+    printk("\n");
+    printk("HEAP:");
+    printnum(heap_ptr_actual);
+    printk("\n");
     return heap_ptr_actual;
 }
 

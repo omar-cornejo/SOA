@@ -59,7 +59,7 @@ void keyboard_routine() {
             write_pointer = (write_pointer + 1) % BUFFER_SIZE;
             buffer_count++;
         }
-        printc_xy(0, 0, character);
+        //printc_xy(0, 0, character);
     }
 }
 

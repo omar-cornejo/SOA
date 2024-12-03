@@ -1,6 +1,6 @@
 #include <utils.h>
 #include <types.h>
-
+#include <sched.h>
 #include <mm_address.h>
 
 void copy_data(void *start, void *dest, int size)
@@ -68,19 +68,41 @@ int access_ok(int type, const void * addr, unsigned long size)
 
   addr_ini=(((unsigned long)addr)>>12);
   addr_fin=((((unsigned long)addr)+size)>>12);
+  int heap_pages;
+  if(current()->heap_ptr != NULL) {
+    heap_pages = (current()->heap_ptr - (char*)(L_USER_START + (NUM_PAG_CODE + NUM_PAG_DATA) * PAGE_SIZE)) / PAGE_SIZE + 1;
+  }
+  
   if (addr_fin < addr_ini) return 0; //This looks like an overflow ... deny access
 
   switch(type)
   {
     case VERIFY_WRITE:
       /* Should suppose no support for automodifyable code */
-      if ((addr_ini>=USER_FIRST_PAGE+NUM_PAG_CODE)&&
-          (addr_fin<=USER_FIRST_PAGE+NUM_PAG_CODE+NUM_PAG_DATA))
-	  return 1;
+      if(current()->heap_ptr != NULL) {
+        if ((addr_ini >= USER_FIRST_PAGE + NUM_PAG_CODE) && (addr_fin <= USER_FIRST_PAGE + NUM_PAG_CODE + NUM_PAG_DATA + heap_pages)) {
+            return 1;
+        }
+      }
+      else {
+        if ((addr_ini >= USER_FIRST_PAGE + NUM_PAG_CODE) &&
+            (addr_fin <= USER_FIRST_PAGE + NUM_PAG_CODE + NUM_PAG_DATA)) {
+          return 1;
+        }
+      }
     default:
+
+    if(current()->heap_ptr != NULL) {
+      if ((addr_ini>=USER_FIRST_PAGE)&& (addr_fin<=(USER_FIRST_PAGE+NUM_PAG_CODE+NUM_PAG_DATA + heap_pages))) {
+       return 1; 
+      }
+    }
+    else {
       if ((addr_ini>=USER_FIRST_PAGE)&&
   	(addr_fin<=(USER_FIRST_PAGE+NUM_PAG_CODE+NUM_PAG_DATA)))
           return 1;
+    }
+      
   }
   return 0;
 }
