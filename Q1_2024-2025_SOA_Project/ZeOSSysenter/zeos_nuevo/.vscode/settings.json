@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "mm_address.h": "c",
+        "sched.h": "c"
+    }
+}
