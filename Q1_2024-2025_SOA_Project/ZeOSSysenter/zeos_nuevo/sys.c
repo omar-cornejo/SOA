@@ -464,15 +464,28 @@ char* sys_sbrk(int size) {
     return heap_ptr_actual;
 }
 
+#define NUM_COLUMNS 80
+#define NUM_ROWS    25
+
 int sys_spritePut(int posX, int posY, Sprite* sp) {
     if (sp == NULL || sp->content == NULL) {
         return -1; 
     }
+    // Verificar que el contenido del sprite es válido
+    if (sp->content == NULL || !access_ok(VERIFY_READ, sp->content, sp->x * sp->y)) {
+        return -1; 
+    }
+    // Verificar que el puntero sp es válido
+    if (!access_ok(VERIFY_READ, sp, sizeof(Sprite))) {
+        return -1; 
+    }
+    
 
+    if(sp->y < 0 || sp->x < 0 || posX >= 80 || posY >= 25 || posX < 0 || posY < 0) return -1;
 
     for (int row = 0; row < sp->x; row++) {
         for (int col = 0; col < sp->y; col++) {
-            char character = sp->content[row * sp->y + col];  
+            char character = sp->content[row * sp->y + col];
             printc_xy(posX + col, posY + row, character); 
         }
     }
@@ -481,8 +494,8 @@ int sys_spritePut(int posX, int posY, Sprite* sp) {
 }
 
 extern Byte x,y;
-#define NUM_COLUMNS 80
-#define NUM_ROWS    25
+extern int color_text,background_text;
+
 
 int sys_gotoXY(int posX, int posY) {
     if (posX < 0 || posX >= NUM_COLUMNS || posY < 0 || posY >= NUM_ROWS) {
@@ -501,11 +514,108 @@ int sys_SetColor(int color, int background) {
         return -1; 
     }
 
-  
-    char colorAttribute = (background << 4) | (color & 0x0F);
-
-    Word *screen = (Word *)0xb8000;
-    screen[(y * NUM_COLUMNS + x)] = (screen[(y * NUM_COLUMNS + x)] & 0x00FF) | (colorAttribute << 8);
+    color_text = color;
+    background_text = background;
 
     return 0;
+}
+
+
+int sys_threadCreate(void (*function)(void* arg),void* parameter, unsigned int wrapper_func) {
+  //pillar un tcb
+
+  
+  printk("1\n");
+  if (list_empty(&freequeue)) return -ENOMEM;
+
+  struct list_head * tcb = list_first(&freequeue);
+  
+  list_del(tcb);
+
+  if(!access_ok(VERIFY_READ,function,sizeof(void)) || !access_ok(VERIFY_READ,parameter,sizeof(void))) return -1;
+
+  printk("2\n");
+  union task_union * thread;
+  thread = (union task_union*)list_head_to_task_struct(tcb);
+  struct task_struct* ts_thread = list_head_to_task_struct(tcb); 
+
+  //compartir directorio, tabla de paginas y todo el
+  copy_data(current(),thread,sizeof(union task_union));
+  INIT_LIST_HEAD(&thread->task.threads);
+
+  page_table_entry *PT = get_PT(current());
+  page_table_entry *PT_thread = get_PT(ts_thread);
+
+  printk("3\n");
+  ts_thread->TID = current()->num_threads + 1;
+
+  //paginas fisica para el thread
+  int new_ph_pag=alloc_frame();
+  if(new_ph_pag == -1) {
+    list_add_tail(tcb,&freequeue);
+    return -EAGAIN;
+  } else {
+    //empiezas por abajo + numero de threads para setear la pagina que te toca, verificar que la siguiente pagina no esté seteada por heap
+    int current_logical_page_heap = (current()->heap_ptr - (char*)L_USER_START) / PAGE_SIZE + NUM_PAG_KERNEL;
+    if(current_logical_page_heap == 0) current_logical_page_heap = 0x11c;  //limite inferior de heap
+    if(current()->thread_ptr/PAGE_SIZE - 1 == current_logical_page_heap ) return -1;
+    
+    //el proceso va acumulando los usr stack de los threads
+    set_ss_pag(PT,current()->thread_ptr/PAGE_SIZE - 1, new_ph_pag);
+  }
+
+
+
+  set_cr3(get_DIR(current()));
+
+  printk("4\n");
+  current()->thread_ptr -= PAGE_SIZE;
+  ts_thread->thread_ptr = current()->thread_ptr;
+  ts_thread->state= ST_READY;
+  init_stats(&ts_thread->p_stats);
+
+  //inicializar usr_stack
+  int * puntero_usr_stack = ts_thread->thread_ptr + PAGE_SIZE;
+  puntero_usr_stack -= 4;
+  *puntero_usr_stack = parameter;
+  puntero_usr_stack -= 4;
+  *puntero_usr_stack = function;
+
+  printk("5\n");
+  int register_ebp;		/* frame pointer */
+  /* Map Parent's ebp to child's stack */
+  register_ebp = (int) get_ebp();
+  register_ebp=(register_ebp - (int)current()) + (int)(ts_thread);
+
+  thread->task.register_esp=register_ebp + sizeof(DWord);
+
+  DWord temp_ebp=*(DWord*)register_ebp;
+  /* Prepare child stack for context switch */
+  thread->task.register_esp-=sizeof(DWord);
+  *(DWord*)(thread->task.register_esp)=(DWord)wrapper_func;
+  thread->task.register_esp-=sizeof(DWord);
+  *(DWord*)(thread->task.register_esp)=temp_ebp;
+  
+  printk("6\n");
+  current()->num_threads +=1;
+  list_add_tail(&(ts_thread->list),&readyqueue);
+  list_add_tail(&(ts_thread->threads), &current()->threads);
+  ts_thread->num_threads = current()->num_threads;
+  printk("7\n");
+  return ts_thread->TID;
+}
+
+
+void sys_threadExit(){
+  page_table_entry *PT = get_PT(current());
+  free_frame(get_frame(PT, (unsigned int)current()->thread_ptr/PAGE_SIZE));
+  del_ss_pag(PT,(unsigned int)current()->thread_ptr/PAGE_SIZE);
+ 
+  if(!list_empty(&current()->threads)) list_del(&current()->threads);
+
+  list_add_tail(&(current()->list), &freequeue);
+  current()->PID=-1; 
+  current()->TID=-1;
+  current()->thread_ptr = NULL;
+  sched_next_rr();
 }

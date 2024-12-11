@@ -174,6 +174,36 @@ ENTRY(SetColor)
 	popl %ebp
 	ret
 
+/*int threadCreate( void (*function)(void* arg), void* parameter ) */
+ENTRY(threadCreate)
+	pushl %ebp
+	movl %esp, %ebp
+	pushl %ebx;  // Save EBX, ESI and EDI if modified
+	movl $41, %eax
+	movl 0x8(%ebp), %ebx;	
+	movl 0xC(%ebp), %ecx;
+	movl $wrapper_func, %edx;	
+	call syscall_sysenter
+	popl %ebx
+	test %eax, %eax
+	js nok	// if (eax < 0) -> 
+	popl %ebp
+	ret
+
+/*void threadExit(void)*/
+ENTRY(threadExit)
+	pushl %ebp
+	movl %esp, %ebp
+	pushl %ebx;  // Save EBX, ESI and EDI if modified
+	movl $42, %eax
+	call syscall_sysenter
+	popl %ebx
+	test %eax, %eax
+	js nok	// if (eax < 0) -> 
+	popl %ebp
+	ret
+
+
 ENTRY(SAVE_REGS)
       pushl %eax
       movl %eax, REGS    //SAVE EAX
@@ -186,6 +216,8 @@ ENTRY(SAVE_REGS)
       movl %ebx, 24(%eax)
       popl %eax
       ret
+
+
 
 ENTRY(RESTORE_REGS)
       lea REGS  , %eax

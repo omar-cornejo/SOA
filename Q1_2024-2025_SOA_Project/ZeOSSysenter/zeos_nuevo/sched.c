@@ -165,7 +165,7 @@ void init_idle (void)
   union task_union *uc = (union task_union*)c;
 
   c->PID=0;
-
+  c->TID = 0;
   c->total_quantum=DEFAULT_QUANTUM;
 
   init_stats(&c->p_stats);
@@ -192,11 +192,14 @@ void init_task1(void)
   c->PID=1;
 
   c->total_quantum=DEFAULT_QUANTUM;
-
+  c->num_threads = 1;
+  c->thread_ptr = (TOTAL_PAGES*PAGE_SIZE);
+  INIT_LIST_HEAD(&c->threads);
   c->state=ST_RUN;
 
   c->heap_ptr=NULL;
   
+  c->TID = 0;
   remaining_quantum=c->total_quantum;
 
   init_stats(&c->p_stats);

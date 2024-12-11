@@ -43,5 +43,7 @@ ENTRY (sys_call_table)
 	.long sys_spritePut //38
 	.long sys_gotoXY //39
 	.long sys_SetColor //40
+	.long sys_threadCreate //41
+	.long sys_threadExit //42
 .globl MAX_SYSCALL
 MAX_SYSCALL = (. - sys_call_table)/4

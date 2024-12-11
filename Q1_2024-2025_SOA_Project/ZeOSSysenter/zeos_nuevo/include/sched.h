@@ -25,6 +25,10 @@ struct task_struct {
   int total_quantum;		/* Total quantum of the process */
   struct stats p_stats;		/* Process stats */
   char *heap_ptr;
+  int TID; // el tid del thread
+  struct list_head threads; //lista de threads
+  int num_threads; //numero de threads que tiene el proceso actual
+  int thread_ptr; // puntero de la pila de threads
 };
 
 union task_union {
