@@ -148,15 +148,23 @@ int sys_fork(void)
 
   set_cr3(get_DIR(current()));
   char *heap_ptr = current()->heap_ptr;
-
+  int initial_logical_page = NUM_PAG_DATA + NUM_PAG_CODE + NUM_PAG_KERNEL;
   if (heap_ptr != NULL) {
-        int initial_logical_page = NUM_PAG_DATA + NUM_PAG_CODE + NUM_PAG_KERNEL;
+        
         int current_logical_page = (current()->heap_ptr - (char*)L_USER_START) / PAGE_SIZE + NUM_PAG_KERNEL;
         for (int i = initial_logical_page; i < current_logical_page + 1; i++) {
             int new_frame = alloc_frame();
             if (new_frame != -1) {
                 set_ss_pag(process_PT, i, new_frame);
             } else {
+
+                          /* Deallocate allocated pages. Up to pag. */
+                for (i=0; i<pag; i++)
+                {
+                  free_frame(get_frame(process_PT, PAG_LOG_INIT_DATA+i));
+                  del_ss_pag(process_PT, PAG_LOG_INIT_DATA+i);
+                }
+
                 for (int j = initial_logical_page; j < i + 1; j++) {
                     free_frame(get_frame(process_PT, j));
                     del_ss_pag(process_PT, j);
@@ -169,12 +177,16 @@ int sys_fork(void)
         } 
         uchild->task.heap_ptr = heap_ptr;
   }else uchild->task.heap_ptr = NULL;
-  
+
   /* Deny access to the child's memory space */
   set_cr3(get_DIR(current()));
 
   uchild->task.PID=++global_PID;
   uchild->task.state=ST_READY;
+  uchild->task.thread_ptr = current()->thread_ptr;
+  uchild->task.num_threads = 1;
+  uchild->task.TID = current()->TID;
+  INIT_LIST_HEAD(&uchild->task.threads);
 
   int register_ebp;		/* frame pointer */
   /* Map Parent's ebp to child's stack */
@@ -189,6 +201,41 @@ int sys_fork(void)
   *(DWord*)(uchild->task.register_esp)=(DWord)&ret_from_fork;
   uchild->task.register_esp-=sizeof(DWord);
   *(DWord*)(uchild->task.register_esp)=temp_ebp;
+
+  //copiar las paginas de los threads
+  int thread_ptr = current()->thread_ptr;
+  if(thread_ptr != (TOTAL_PAGES*PAGE_SIZE)) {
+    new_ph_pag = alloc_frame();
+    if (new_ph_pag==-1) {
+
+      for (int j = initial_logical_page; j < i + 1; j++) {
+                    free_frame(get_frame(process_PT, j));
+                    del_ss_pag(process_PT, j);
+      }
+        
+         /* Deallocate allocated pages. Up to pag. */
+      for (i=0; i<pag; i++)
+      {
+        free_frame(get_frame(process_PT, PAG_LOG_INIT_DATA+i));
+        del_ss_pag(process_PT, PAG_LOG_INIT_DATA+i);
+      }
+
+        /* Deallocate task_struct */
+        list_add_tail(lhcurrent, &freequeue);
+        free_frame(new_ph_pag);
+        return -EAGAIN; 
+      }else {
+        //setea al hijo;
+        set_ss_pag(process_PT,current()->thread_ptr/4096,new_ph_pag);
+        //copiar al padre una más arriba del heap
+        int current_logical_page_heap = (current()->heap_ptr - (char*)L_USER_START) / PAGE_SIZE + NUM_PAG_KERNEL;
+        if((current()->thread_ptr/4096 -1) == (current_logical_page_heap)) return -ENOMEM; //no hay paginas entre stacks y heap
+        set_ss_pag(parent_PT,(current()->thread_ptr/4096)+1, get_frame(process_PT,(current()->thread_ptr/4096)));
+        copy_data((void*)((current()->thread_ptr/4096)<<12), (void*)(((current_logical_page_heap)+1)<<12), PAGE_SIZE);
+        del_ss_pag(parent_PT,(current_logical_page_heap)+1);
+        set_cr3(get_DIR(current()));
+      } 
+  }
 
   /* Set stats to 0 */
   init_stats(&(uchild->task.p_stats));
@@ -523,8 +570,6 @@ int sys_SetColor(int color, int background) {
 
 int sys_threadCreate(void (*function)(void* arg),void* parameter, unsigned int wrapper_func) {
   //pillar un tcb
-
-
   printk("1\n");
   if (list_empty(&freequeue)) return -ENOMEM;
 
@@ -538,20 +583,21 @@ int sys_threadCreate(void (*function)(void* arg),void* parameter, unsigned int w
   union task_union * thread;
   thread = (union task_union*)list_head_to_task_struct(tcb);
   struct task_struct* ts_thread = list_head_to_task_struct(tcb); 
-
+  
   //compartir directorio, tabla de paginas y todo el
   copy_data(current(),thread,sizeof(union task_union));
   INIT_LIST_HEAD(&thread->task.threads);
-
+  ts_thread->TID = current()->num_threads + 1;
   page_table_entry *PT = get_PT(current());
   page_table_entry *PT_thread = get_PT(ts_thread);
 
   printk("3\n");
-  ts_thread->TID = current()->num_threads + 1;
+  
 
   //paginas fisica para el thread
   int new_ph_pag=alloc_frame();
   if(new_ph_pag == -1) {
+    free_frame(new_ph_pag);
     list_add_tail(tcb,&freequeue);
     return -EAGAIN;
   } else {
@@ -574,28 +620,16 @@ int sys_threadCreate(void (*function)(void* arg),void* parameter, unsigned int w
 
   //inicializar usr_stack
   unsigned int * puntero_usr_stack = ts_thread->thread_ptr + PAGE_SIZE;
-  puntero_usr_stack -= 4;
+  puntero_usr_stack  = ts_thread->thread_ptr + PAGE_SIZE - 4;
   *puntero_usr_stack = parameter;
-  puntero_usr_stack -= 4;
+  puntero_usr_stack = ts_thread->thread_ptr + PAGE_SIZE - 8;
   *puntero_usr_stack = function;
-  puntero_usr_stack -= 4;
+  puntero_usr_stack  = ts_thread->thread_ptr + PAGE_SIZE - 12;
   *puntero_usr_stack = 0;
 
   printk("5\n");
   int register_ebp;		/* frame pointer */
-  /* Map Parent's ebp to child's stack */
-  // register_ebp = (int) get_ebp();
-  // register_ebp=(register_ebp - (int)current()) + (int)(ts_thread);
-
-  // thread->task.register_esp=register_ebp + sizeof(DWord);
-
-  // DWord temp_ebp=*(DWord*)register_ebp;
-  // /* Prepare child stack for context switch */
-  // thread->task.register_esp-=sizeof(DWord);
-  // *(DWord*)(thread->task.register_esp)=(DWord)wrapper_func;
-  // thread->task.register_esp-=sizeof(DWord);
-  // *(DWord*)(thread->task.register_esp)=temp_ebp;
-  
+ 
   register_ebp = (int) get_ebp();
   register_ebp=(register_ebp - (int)current()) + (int)(ts_thread);
   ts_thread->register_esp=register_ebp;

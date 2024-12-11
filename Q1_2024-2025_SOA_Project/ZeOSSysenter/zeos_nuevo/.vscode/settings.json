@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "mm_address.h": "c",
-        "sched.h": "c"
+        "sched.h": "c",
+        "functional": "c"
     }
 }

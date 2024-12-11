@@ -31,12 +31,11 @@ void printnum(int num) {
 
 void escribir_char(char *a){
   write(1,"soy_elthread\n",13);
+  fork();
 }
 
-void wrapper_func(void (*function)(void* arg),void* parameter) {
-  //function(parameter);
-  char *a;
-  escribir_char(a);
+void wrapper_func(void * (*function)(void* arg),void* parameter) {
+  function(parameter);
   threadExit();
 }
 
@@ -114,7 +113,7 @@ int __attribute__ ((__section__(".text.main")))
 
   // SetColor(2,6);
   // spritePut(78, 24, &sp);
-  
+  fork();
   char p = 'p';
   //p de momento no lo uso para nada  
   write(1,"\n",1);
