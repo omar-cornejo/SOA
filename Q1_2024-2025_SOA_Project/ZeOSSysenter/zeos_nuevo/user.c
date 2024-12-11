@@ -34,8 +34,10 @@ void escribir_char(char *a){
 }
 
 void wrapper_func(void (*function)(void* arg),void* parameter) {
-  function(parameter);
-  threadExit();  
+  //function(parameter);
+  char *a;
+  escribir_char(a);
+  threadExit();
 }
 
 int __attribute__ ((__section__(".text.main")))
@@ -115,8 +117,14 @@ int __attribute__ ((__section__(".text.main")))
   
   char p = 'p';
   //p de momento no lo uso para nada  
+  write(1,"\n",1);
+  printnum(&escribir_char);
+  write(1,"\n",1);
+  printnum(&p);
+  write(1,"\n",1);
   threadCreate(&escribir_char,&p);  
   write(1,"El proceso vuelve\n",18);
+  
   while(1) { 
     //if(getKey(&b) == 0) write(1,&b,1);
   }

@@ -524,7 +524,7 @@ int sys_SetColor(int color, int background) {
 int sys_threadCreate(void (*function)(void* arg),void* parameter, unsigned int wrapper_func) {
   //pillar un tcb
 
-  
+
   printk("1\n");
   if (list_empty(&freequeue)) return -ENOMEM;
 
@@ -561,10 +561,8 @@ int sys_threadCreate(void (*function)(void* arg),void* parameter, unsigned int w
     if(current()->thread_ptr/PAGE_SIZE - 1 == current_logical_page_heap ) return -1;
     
     //el proceso va acumulando los usr stack de los threads
-    set_ss_pag(PT,current()->thread_ptr/PAGE_SIZE - 1, new_ph_pag);
+    set_ss_pag(PT,(unsigned int)current()->thread_ptr/PAGE_SIZE - 1, new_ph_pag);
   }
-
-
 
   set_cr3(get_DIR(current()));
 
@@ -575,27 +573,41 @@ int sys_threadCreate(void (*function)(void* arg),void* parameter, unsigned int w
   init_stats(&ts_thread->p_stats);
 
   //inicializar usr_stack
-  int * puntero_usr_stack = ts_thread->thread_ptr + PAGE_SIZE;
+  unsigned int * puntero_usr_stack = ts_thread->thread_ptr + PAGE_SIZE;
   puntero_usr_stack -= 4;
   *puntero_usr_stack = parameter;
   puntero_usr_stack -= 4;
   *puntero_usr_stack = function;
+  puntero_usr_stack -= 4;
+  *puntero_usr_stack = 0;
 
   printk("5\n");
   int register_ebp;		/* frame pointer */
   /* Map Parent's ebp to child's stack */
+  // register_ebp = (int) get_ebp();
+  // register_ebp=(register_ebp - (int)current()) + (int)(ts_thread);
+
+  // thread->task.register_esp=register_ebp + sizeof(DWord);
+
+  // DWord temp_ebp=*(DWord*)register_ebp;
+  // /* Prepare child stack for context switch */
+  // thread->task.register_esp-=sizeof(DWord);
+  // *(DWord*)(thread->task.register_esp)=(DWord)wrapper_func;
+  // thread->task.register_esp-=sizeof(DWord);
+  // *(DWord*)(thread->task.register_esp)=temp_ebp;
+  
   register_ebp = (int) get_ebp();
   register_ebp=(register_ebp - (int)current()) + (int)(ts_thread);
+  ts_thread->register_esp=register_ebp;
 
-  thread->task.register_esp=register_ebp + sizeof(DWord);
-
-  DWord temp_ebp=*(DWord*)register_ebp;
-  /* Prepare child stack for context switch */
-  thread->task.register_esp-=sizeof(DWord);
-  *(DWord*)(thread->task.register_esp)=(DWord)wrapper_func;
-  thread->task.register_esp-=sizeof(DWord);
-  *(DWord*)(thread->task.register_esp)=temp_ebp;
   
+
+  unsigned int * esp_child =  ts_thread->register_esp + 16*sizeof(DWord); 
+  *esp_child = puntero_usr_stack; 
+  unsigned int * eip_child =  ts_thread->register_esp + 13*sizeof(DWord); 
+  *eip_child = wrapper_func;
+  set_cr3(get_DIR(current())); 
+
   printk("6\n");
   current()->num_threads +=1;
   list_add_tail(&(ts_thread->list),&readyqueue);
