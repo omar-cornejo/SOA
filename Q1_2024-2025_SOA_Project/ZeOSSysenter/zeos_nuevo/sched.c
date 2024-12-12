@@ -192,14 +192,14 @@ void init_task1(void)
   c->PID=1;
 
   c->total_quantum=DEFAULT_QUANTUM;
-  c->numThreads = 0;
-  c->user_stack_sp = TOTAL_PAGES * PAGE_SIZE;
+  c->num_threads = 1;
+  c->thread_ptr = (TOTAL_PAGES*PAGE_SIZE);
   INIT_LIST_HEAD(&c->threads);
   c->state=ST_RUN;
 
   c->heap_ptr=NULL;
   
-  c->TID = 1;
+  c->TID = 0;
   remaining_quantum=c->total_quantum;
 
   init_stats(&c->p_stats);
@@ -224,7 +224,6 @@ void init_freequeue()
   for (i=0; i<NR_TASKS; i++)
   {
     task[i].task.PID=-1;
-    task[i].task.TID=-1;
     list_add_tail(&(task[i].task.list), &freequeue);
   }
 }

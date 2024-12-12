@@ -113,12 +113,18 @@ int __attribute__ ((__section__(".text.main")))
 
   // SetColor(2,6);
   // spritePut(78, 24, &sp);
-  
+  fork();
   char p = 'p';
   //p de momento no lo uso para nada  
-  threadCreate(&escribir_char,&p);  
+  write(1,"\n",1);
+  printnum(&escribir_char);
+  write(1,"\n",1);
+  printnum(&p);
+  write(1,"\n",1);
+  threadCreate(&escribir_char,&p);
+  threadCreate(&escribir_char,&p);    
   write(1,"El proceso vuelve\n",18);
-  
+  threadCreate(&escribir_char,&p);
   while(1) { 
     //if(getKey(&b) == 0) write(1,&b,1);
   }
