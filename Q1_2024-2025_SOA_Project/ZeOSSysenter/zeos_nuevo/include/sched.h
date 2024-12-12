@@ -27,8 +27,8 @@ struct task_struct {
   char *heap_ptr;
   int TID; // el tid del thread
   struct list_head threads; //lista de threads
-  int num_threads; //numero de threads que tiene el proceso actual
-  int thread_ptr; // puntero de la pila de threads
+  int numThreads; //numero de threads que tiene el proceso actual
+  char *user_stack_sp; // puntero de la pila de threads
 };
 
 union task_union {
