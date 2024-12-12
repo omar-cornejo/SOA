@@ -544,7 +544,8 @@ int sys_threadCreate( void (*function)(void* arg), void* parameter, void* wrappe
 
   uchild->task.TID = global_TID++;
   unsigned int userStackLogPage = (unsigned int)(TOTAL_PAGES - current()->numThreads - 1);
-  printnum(userStackLogPage);
+  INIT_LIST_HEAD(&uchild->task.threads);
+  //printnum(userStackLogPage);
 
   int userStackPhyPage = alloc_frame();
   if (userStackPhyPage < 0) {
@@ -578,6 +579,7 @@ int sys_threadCreate( void (*function)(void* arg), void* parameter, void* wrappe
   current()->numThreads = uchild->task.numThreads++;
 
   list_add_tail(&(uchild->task.list), &readyqueue);
+  list_add_tail(&(uchild->task.threads), &current()->threads);
   return uchild->task.TID;
 }
 
