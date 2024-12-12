@@ -487,8 +487,10 @@ int sys_spritePut(int posX, int posY, Sprite* sp) {
 
     for (int row = 0; row < sp->x; row++) {
         for (int col = 0; col < sp->y; col++) {
-            char character = sp->content[row * sp->y + col];
+            if(posX+col < 80 && posY+row < 25) { 
+              char character = sp->content[row * sp->y + col];
             printc_xy(posX + col, posY + row, character); 
+            }            
         }
     }
 
