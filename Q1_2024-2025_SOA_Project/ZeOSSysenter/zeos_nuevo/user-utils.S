@@ -174,29 +174,103 @@ ENTRY(SetColor)
 	popl %ebp
 	ret
 
-/*int threadCreate( void (*function)(void* arg), void* parameter ) */
+
 ENTRY(threadCreate)
 	pushl %ebp
 	movl %esp, %ebp
-	pushl %ebx;  // Save EBX, ESI and EDI if modified
-	movl $41, %eax
-	movl 0x8(%ebp), %ebx;	
+	pushl %ebx;
+	movl $21, %eax
+	movl 0x8(%ebp), %ebx;
 	movl 0xC(%ebp), %ecx;
-	movl $wrapper_func, %edx;	
+	movl $wrapper_func, %edx;
 	call syscall_sysenter
 	popl %ebx
 	test %eax, %eax
-	js nok	// if (eax < 0) -> 
+	js nok	// if (eax < 0) -->
 	popl %ebp
 	ret
 
-/*void threadExit(void)*/
 ENTRY(threadExit)
 	pushl %ebp
 	movl %esp, %ebp
-	pushl %ebx;  // Save EBX, ESI and EDI if modified
-	movl $42, %eax
+	movl $22, %eax
 	call syscall_sysenter
+	popl %ebp
+	ret
+
+ENTRY(semCreate)
+	pushl %ebp
+	movl %esp, %ebp
+	pushl %ebx;
+	movl $23, %eax
+	movl 0x8(%ebp), %ebx;
+	call syscall_sysenter
+	popl %ebx
+	test %eax, %eax
+	js nok	// if (eax < 0) -->
+	popl %ebp
+	ret
+
+ENTRY(semWait)
+	pushl %ebp
+	movl %esp, %ebp
+	pushl %ebx;
+	movl $24, %eax
+	movl 0x8(%ebp), %ebx;
+	call syscall_sysenter
+	popl %ebx
+	test %eax, %eax
+	js nok	// if (eax < 0) -->
+	popl %ebp
+	ret
+
+ENTRY(semSignal)
+	pushl %ebp
+	movl %esp, %ebp
+	pushl %ebx;
+	movl $25, %eax
+	movl 0x8(%ebp), %ebx;
+	call syscall_sysenter
+	popl %ebx
+	test %eax, %eax
+	js nok	// if (eax < 0) -->
+	popl %ebp
+	ret
+
+ENTRY(semDestroy)
+	pushl %ebp
+	movl %esp, %ebp
+	pushl %ebx;
+	movl $26, %eax
+	movl 0x8(%ebp), %ebx;
+	call syscall_sysenter
+	popl %ebx
+	test %eax, %eax
+	js nok	// if (eax < 0) -->
+	popl %ebp
+	ret
+
+ENTRY(clean_screen)
+	pushl %ebp
+	movl %esp, %ebp
+	movl $41, %eax
+	call syscall_sysenter
+	popl %ebp
+	ret
+
+/* clean_region(int startX, int startY, int endX, int endY)  */
+ENTRY(clean_region)
+	pushl %ebp
+	movl %esp, %ebp
+	pushl %ebx;  // Save EBX, ESI and EDI if modified
+	pushl %esi;
+	movl $42, %eax
+	movl 0x8(%ebp), %ebx;	
+	movl 0xC(%ebp), %ecx;	
+	movl 0x10(%ebp), %edx;
+	movl 0x14(%ebp), %esi;		
+	call syscall_sysenter
+	popl %esi
 	popl %ebx
 	test %eax, %eax
 	js nok	// if (eax < 0) -> 
@@ -216,8 +290,6 @@ ENTRY(SAVE_REGS)
       movl %ebx, 24(%eax)
       popl %eax
       ret
-
-
 
 ENTRY(RESTORE_REGS)
       lea REGS  , %eax

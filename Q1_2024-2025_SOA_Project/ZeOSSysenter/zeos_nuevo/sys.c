@@ -17,8 +17,13 @@
 
 #include <errno.h>
 
+#include <list.h>
+
 #define LECTURA 0
 #define ESCRIPTURA 1
+
+#define COPY_PAGE TOTAL_PAGES - 1
+#define USR_SK_START TOTAL_PAGES - 2
 
 void * get_ebp();
 
@@ -50,9 +55,21 @@ int sys_getpid()
 }
 
 int global_PID=1000;
+int global_TID=9050;
 
 int ret_from_fork()
 {
+  return 0;
+}
+
+int seach_free_page (page_table_entry *PT) {
+  for (int i = TOTAL_PAGES - 2; i >= 0; --i) {
+    if (!PT[i].bits.present) return i;
+  }
+}
+
+int isMaster() {
+  if (current()->master == current()) return 1;
   return 0;
 }
 
@@ -102,6 +119,8 @@ int sys_fork(void)
     }
   }
 
+  ////("1");
+
   /* Copy parent's SYSTEM and CODE to child. */
   page_table_entry *parent_PT = get_PT(current());
   for (pag=0; pag<NUM_PAG_KERNEL; pag++)
@@ -112,81 +131,70 @@ int sys_fork(void)
   {
     set_ss_pag(process_PT, PAG_LOG_INIT_CODE+pag, get_frame(parent_PT, PAG_LOG_INIT_CODE+pag));
   }
+//("2");
 
   
-  int heap_pages = 0;
-  if(current()->heap_ptr != NULL) {
-    heap_pages = (current()->heap_ptr - (char*)(L_USER_START + (NUM_PAG_CODE + NUM_PAG_DATA) * PAGE_SIZE)) / PAGE_SIZE + 1;
-    if((TOTAL_PAGES - 1 - (((unsigned long)current()->heap_ptr)>>12)) < NUM_PAG_DATA) {
-      /* Deallocate allocated pages. Up to pag. */
-      for (i=0; i<pag; i++)
-      {
-        free_frame(get_frame(process_PT, PAG_LOG_INIT_DATA+i));
-        del_ss_pag(process_PT, PAG_LOG_INIT_DATA+i);
-      }
-      /* Deallocate task_struct */
-      list_add_tail(lhcurrent, &freequeue);
-      return -ENOMEM;
-    }
-    for (pag=NUM_PAG_KERNEL+NUM_PAG_CODE; pag<NUM_PAG_KERNEL+NUM_PAG_CODE+NUM_PAG_DATA; pag++)
-    {
-      /* Map one child page to parent's address space. */
-      set_ss_pag(parent_PT, pag+NUM_PAG_DATA+heap_pages, get_frame(process_PT, pag));
-      copy_data((void*)(pag<<12), (void*)((pag+NUM_PAG_DATA+heap_pages)<<12), PAGE_SIZE);
-      del_ss_pag(parent_PT, pag+NUM_PAG_DATA+heap_pages);
-    }   
-  } else {
-      /* Copy parent's DATA to child. We will use TOTAL_PAGES-1 as a temp logical page to map to */
-    for (pag=NUM_PAG_KERNEL+NUM_PAG_CODE; pag<NUM_PAG_KERNEL+NUM_PAG_CODE+NUM_PAG_DATA; pag++)
-    {
-      /* Map one child page to parent's address space. */
-      set_ss_pag(parent_PT, pag+NUM_PAG_DATA, get_frame(process_PT, pag));
-      copy_data((void*)(pag<<12), (void*)((pag+NUM_PAG_DATA)<<12), PAGE_SIZE);
-      del_ss_pag(parent_PT, pag+NUM_PAG_DATA);
-    }
-  }
+  int heap_pages = current()->heap_ptr?(current()->heap_ptr - (char*)(L_USER_START + (NUM_PAG_CODE + NUM_PAG_DATA) * PAGE_SIZE)) / PAGE_SIZE + 1 : 0;
 
-  set_cr3(get_DIR(current()));
+  for (pag=NUM_PAG_KERNEL+NUM_PAG_CODE; pag<NUM_PAG_KERNEL+NUM_PAG_CODE+NUM_PAG_DATA; pag++)
+  {
+    /* Map one child page to parent's address space. */
+    set_ss_pag(parent_PT, COPY_PAGE, get_frame(process_PT, pag));
+    copy_data((void*)(pag<<12), (void*)((COPY_PAGE)<<12), PAGE_SIZE);
+    del_ss_pag(parent_PT, COPY_PAGE);
+    set_cr3(get_DIR(current()));
+  }   
+   
+//("3");
+
   char *heap_ptr = current()->heap_ptr;
-  int initial_logical_page = NUM_PAG_DATA + NUM_PAG_CODE + NUM_PAG_KERNEL;
+
   if (heap_ptr != NULL) {
-        
+        int initial_logical_page = NUM_PAG_DATA + NUM_PAG_CODE + NUM_PAG_KERNEL;
         int current_logical_page = (current()->heap_ptr - (char*)L_USER_START) / PAGE_SIZE + NUM_PAG_KERNEL;
         for (int i = initial_logical_page; i < current_logical_page + 1; i++) {
             int new_frame = alloc_frame();
             if (new_frame != -1) {
                 set_ss_pag(process_PT, i, new_frame);
             } else {
-
-                          /* Deallocate allocated pages. Up to pag. */
-                for (i=0; i<pag; i++)
-                {
-                  free_frame(get_frame(process_PT, PAG_LOG_INIT_DATA+i));
-                  del_ss_pag(process_PT, PAG_LOG_INIT_DATA+i);
-                }
-
                 for (int j = initial_logical_page; j < i + 1; j++) {
                     free_frame(get_frame(process_PT, j));
                     del_ss_pag(process_PT, j);
                 }
+                list_add_tail(lhcurrent, &freequeue); //<== Te lo he anadido, creo que faltaba esto.
                 return -EAGAIN;
             }
-            set_ss_pag(parent_PT, i + heap_pages, get_frame(process_PT, i));
-            copy_data((void*)(i << 12), (void*)((i + heap_pages) << 12), PAGE_SIZE);
-            del_ss_pag(parent_PT, i + heap_pages);
+            set_ss_pag(parent_PT, COPY_PAGE, get_frame(process_PT, i));
+            copy_data((void*)(i << 12), (void*)(COPY_PAGE << 12), PAGE_SIZE);
+            del_ss_pag(parent_PT, COPY_PAGE);
         } 
         uchild->task.heap_ptr = heap_ptr;
   }else uchild->task.heap_ptr = NULL;
-
-  /* Deny access to the child's memory space */
   set_cr3(get_DIR(current()));
+
+//("4");
+
+
+  char *usr_ptr = current()->user_stack_sp;
+
+  // A tener en cuenta, el primer proceso tiene el usrStk dentro de la seccion de datos, como que es el unico que tiene PID = 1
+  // No tenemos que alocatar ninguna pagina.
+  if (current()-> TID != 1) { 
+    int usrStackPhyPage;
+    if ((usrStackPhyPage = alloc_frame()) < 0) {
+      list_add_tail(lhcurrent, &freequeue);
+      return -EAGAIN;
+    }
+    set_ss_pag(parent_PT, COPY_PAGE, usrStackPhyPage);
+    copy_data((void*)usr_ptr, (void*)((COPY_PAGE << 12)), PAGE_SIZE);
+    del_ss_pag(parent_PT, COPY_PAGE);
+    set_ss_pag(process_PT, (int)usr_ptr >> 12, usrStackPhyPage);
+    set_cr3(get_DIR(current()));
+  }
+
 
   uchild->task.PID=++global_PID;
   uchild->task.state=ST_READY;
-  uchild->task.thread_ptr = current()->thread_ptr;
-  uchild->task.num_threads = 1;
-  uchild->task.TID = current()->TID;
-  INIT_LIST_HEAD(&uchild->task.threads);
 
   int register_ebp;		/* frame pointer */
   /* Map Parent's ebp to child's stack */
@@ -202,57 +210,27 @@ int sys_fork(void)
   uchild->task.register_esp-=sizeof(DWord);
   *(DWord*)(uchild->task.register_esp)=temp_ebp;
 
-  //copiar las paginas de los threads
-  int thread_ptr = current()->thread_ptr;
-  if(thread_ptr != (TOTAL_PAGES*PAGE_SIZE)) {
-    new_ph_pag = alloc_frame();
-    if (new_ph_pag==-1) {
-
-      for (int j = initial_logical_page; j < i + 1; j++) {
-                    free_frame(get_frame(process_PT, j));
-                    del_ss_pag(process_PT, j);
-      }
-        
-         /* Deallocate allocated pages. Up to pag. */
-      for (i=0; i<pag; i++)
-      {
-        free_frame(get_frame(process_PT, PAG_LOG_INIT_DATA+i));
-        del_ss_pag(process_PT, PAG_LOG_INIT_DATA+i);
-      }
-
-        /* Deallocate task_struct */
-        list_add_tail(lhcurrent, &freequeue);
-        free_frame(new_ph_pag);
-        return -EAGAIN; 
-      }else {
-        //setea al hijo;
-        set_ss_pag(process_PT,current()->thread_ptr/4096,new_ph_pag);
-        //copiar al padre una más arriba del heap
-        int current_logical_page_heap = (current()->heap_ptr - (char*)L_USER_START) / PAGE_SIZE + NUM_PAG_KERNEL;
-        if((current()->thread_ptr/4096 -1) == (current_logical_page_heap)) return -ENOMEM; //no hay paginas entre stacks y heap
-        set_ss_pag(parent_PT,(current()->thread_ptr/4096)+1, get_frame(process_PT,(current()->thread_ptr/4096)));
-        copy_data((void*)((current()->thread_ptr/4096)<<12), (void*)(((current_logical_page_heap)+1)<<12), PAGE_SIZE);
-        del_ss_pag(parent_PT,(current_logical_page_heap)+1);
-        set_cr3(get_DIR(current()));
-      } 
-  }
-
   /* Set stats to 0 */
   init_stats(&(uchild->task.p_stats));
 
   /* Queue child process into readyqueue */
   uchild->task.state=ST_READY;
   list_add_tail(&(uchild->task.list), &readyqueue);
-  
+  INIT_LIST_HEAD(&uchild->task.threads);
+  uchild->task.master = &uchild->task;
+  uchild->task.num_threads = 1;
+  //("6");
+
   return uchild->task.PID;
 }
 
 #define TAM_BUFFER 512
 
 int sys_write(int fd, char *buffer, int nbytes) {
-char localbuffer [TAM_BUFFER];
-int bytes_left;
-int ret;
+
+  char localbuffer [TAM_BUFFER];
+  int bytes_left;
+  int ret;
 
 	if ((ret = check_fd(fd, ESCRIPTURA)))
 		
@@ -275,6 +253,7 @@ int ret;
 		bytes_left-=ret;
 	}
 	return (nbytes-bytes_left);
+  
 }
 
 
@@ -288,7 +267,7 @@ int sys_gettime()
 void sys_exit()
 {  
   int i;
-
+  struct task_struct *master = current()->master;
   page_table_entry *process_PT = get_PT(current());
 
   // Deallocate all the propietary physical pages
@@ -296,7 +275,7 @@ void sys_exit()
 
         int initial_logical_page = NUM_PAG_DATA + NUM_PAG_CODE + NUM_PAG_KERNEL;
         int current_logical_page = (current()->heap_ptr - (char*)L_USER_START) / PAGE_SIZE + NUM_PAG_KERNEL;
-
+ 
         while (initial_logical_page < current_logical_page + 1) {
             int frame = get_frame(process_PT, initial_logical_page);
             free_frame(frame);
@@ -311,12 +290,37 @@ void sys_exit()
     free_frame(get_frame(process_PT, PAG_LOG_INIT_DATA+i));
     del_ss_pag(process_PT, PAG_LOG_INIT_DATA+i);
   }
+
+  for (int i = 0; i < 10; ++i) {
+    master->semfs[i].count = -1;
+    master->semfs[i].TID = -1;
+    INIT_LIST_HEAD(&master->semfs[i].blocked);
+  }
+
   /* Free task_struct */
-  list_add_tail(&(current()->list), &freequeue);
-  
-  current()->PID=-1;
-  
+
+  if (!list_empty(&master->threads)) {
+    struct list_head* e = list_first(&master->threads);
+    while (e != &master->threads) {
+      struct task_struct* ts = list_head_to_task_struct(e);
+      free_frame(get_frame(get_PT(ts), ((int)(ts->user_stack_sp) >> 12)));
+      del_ss_pag(get_PT(ts), ((int)(ts->user_stack_sp) >> 12));
+      ts->TID = -1;
+      ts->PID = -1;
+      ts->num_threads = 0;
+      list_del(&ts->list);
+      list_add_tail(&ts->list, &freequeue);
+      e = e->next;
+    }
+  }
+  free_frame(get_frame(get_PT(master), ((int)(master->user_stack_sp) >> 12)));
+  del_ss_pag(get_PT(master), ((int)(master->user_stack_sp) >> 12));
+  master->TID = -1;
+  master->PID = -1;
+  list_add_tail(&master->list, &freequeue);
+  master->num_threads = 0;
   /* Restarts execution of the next process */
+
   sched_next_rr();
 }
 
@@ -393,41 +397,41 @@ char* sys_sbrk(int size) {
         ts->heap_ptr = (char*) (L_USER_START + (NUM_PAG_CODE + NUM_PAG_DATA) * PAGE_SIZE);
         heap_ptr_actual = ts->heap_ptr;
 
-        //printnum(heap_ptr_actual);
-        //printk("\n");
+        ////(heap_ptr_actual);
+        ////("\n");
     }
 
     if (size > 0) {
 
-        printk("\n");
-        printk("Operación sumar:");
-        printnum(sumador);
-        printk("\n");
+        //("\n");
+        //("Operación sumar:");
+        //(sumador);
+        //("\n");
 
         int allocated_pages[128];
         int allocated_count = 0;
         while (sumador > 0) {
-            printk("Sumador:");
-            printnum(sumador);
-            printk("\n");
+            //("Sumador:");
+            //(sumador);
+            //("\n");
             int available_space_in_current_page = PAGE_SIZE - (unsigned long)ts->heap_ptr % PAGE_SIZE;
-            printk("Espacio en pagina actual:");
-            printnum(available_space_in_current_page);
-            printk("\n");
+            //("Espacio en pagina actual:");
+            //(available_space_in_current_page);
+            //("\n");
             if (sumador <= available_space_in_current_page) {
-                printk("Me cabe en la pagina\n");
+                //("Me cabe en la pagina\n");
                 ts->heap_ptr += sumador;
-                printk("Heap futuro:");
-                printnum(ts->heap_ptr);
-                printk("\n");
+                //("Heap futuro:");
+                //(ts->heap_ptr);
+                //("\n");
                 return ts->heap_ptr - size;
             } else {
-                printk("Pido otra pagina\n");
+                //("Pido otra pagina\n");
                 int new_ph_pag = alloc_frame();
                 if (new_ph_pag == -1) {
-                  printnum(allocated_count);
-                  printk("\n");
-                  printk("Fin de paginas\n");
+                  //(allocated_count);
+                  //("\n");
+                  //("Fin de paginas\n");
                   //devolver todas las paginas demás
                   page_table_entry* process_PT = get_PT(ts);
                   for (int i = 0; i < allocated_count; i++) {
@@ -454,38 +458,38 @@ char* sys_sbrk(int size) {
         
     } else if (size < 0) {
         if (ts->heap_ptr == (char*) (L_USER_START + (NUM_PAG_CODE + NUM_PAG_DATA) * PAGE_SIZE)) {
-            printk("Error limite minimo de heap");
+            //("Error limite minimo de heap");
             return (char*)-1;
         }
         
-        printk("\n");
-        printk("Operación restar:");
-        printnum(restador);
-        printk("\n");
+        //("\n");
+        //("Operación restar:");
+        //(restador);
+        //("\n");
 
         int prev_logical_page = (ts->heap_ptr - (char*)L_USER_START) / PAGE_SIZE + NUM_PAG_KERNEL;
-        printk("Pagina logica actual:");
-        printnum(prev_logical_page);
-        printk("\n");
+        //("Pagina logica actual:");
+        //(prev_logical_page);
+        //("\n");
 
         while (restador > 0) {
             int space_in_current_page = PAGE_SIZE - (unsigned long)ts->heap_ptr % PAGE_SIZE;
-            printk("Espacio en pagina actual:");
-            printnum(space_in_current_page);
-            printk("\n");
+            //("Espacio en pagina actual:");
+            //(space_in_current_page);
+            //("\n");
 
             ts->heap_ptr -= restador;
             int current_logical_page = (ts->heap_ptr - (char*)L_USER_START) / PAGE_SIZE + NUM_PAG_KERNEL;
-            printk("Pagina logica futura:");
-            printnum(current_logical_page);
-            printk("\n");
+            //("Pagina logica futura:");
+            //(current_logical_page);
+            //("\n");
 
-            printk("Heap futuro:");
-            printnum(ts->heap_ptr);
-            printk("\n");
+            //("Heap futuro:");
+            //(ts->heap_ptr);
+            //("\n");
             // comprobar que rango size no modifica otras secciones, limit del heap 0x11c 
             if(current_logical_page < 0x11c) {
-                  printk("Operación invalida\n");
+                  //("Operación invalida\n");
                   ts->heap_ptr += restador;
                   return (char*)-1;
             }
@@ -504,10 +508,10 @@ char* sys_sbrk(int size) {
         }
     }
     
-    printk("\n");
-    printk("HEAP:");
-    printnum(heap_ptr_actual);
-    printk("\n");
+    //("\n");
+    //("HEAP:");
+    //(heap_ptr_actual);
+    //("\n");
     return heap_ptr_actual;
 }
 
@@ -515,31 +519,36 @@ char* sys_sbrk(int size) {
 #define NUM_ROWS    25
 
 int sys_spritePut(int posX, int posY, Sprite* sp) {
+    // Verificar que el puntero del sprite y su contenido son válidos
     if (sp == NULL || sp->content == NULL) {
-        return -1; 
+        return -1; // Error si el sprite no es válido
     }
-    // Verificar que el contenido del sprite es válido
-    if (sp->content == NULL || !access_ok(VERIFY_READ, sp->content, sp->x * sp->y)) {
-        return -1; 
-    }
-    // Verificar que el puntero sp es válido
-    if (!access_ok(VERIFY_READ, sp, sizeof(Sprite))) {
-        return -1; 
-    }
-    
 
-    if(sp->y < 0 || sp->x < 0 || posX >= 80 || posY >= 25 || posX < 0 || posY < 0) return -1;
+    // Verificar acceso a memoria del sprite
+    if (!access_ok(VERIFY_READ, sp, sizeof(Sprite)) || 
+        !access_ok(VERIFY_READ, sp->content, sp->x * sp->y)) {
+        return -1; // Error si no es seguro acceder
+    }
 
-    for (int row = 0; row < sp->x; row++) {
-        for (int col = 0; col < sp->y; col++) {
-             if(posX+col < 80 && posY+row < 25) { 
-              char character = sp->content[row * sp->y + col];
-            printc_xy(posX + col, posY + row, character); 
+    // Asegurarse de que las posiciones están dentro del rango
+    if (posX < 0 || posY < 0 || posX >= 80 || posY >= 25) {
+        return -1; // Error si está fuera de la pantalla
+    }
+
+    for (int row = 0; row < sp->y; row++) { 
+        for (int col = 0; col < sp->x; col++) { 
+            int screenX = posX + col;
+            int screenY = posY + row;
+            if (screenX < 80 && screenY < 25 && screenX >= 0 && screenY >= 0) {
+                char character = sp->content[row * sp->x + col]; 
+                if (character != ' ') { 
+                    printc_xy(screenX, screenY, character);
+                }
             }
         }
     }
 
-    return 0; 
+    return 0; // Éxito
 }
 
 extern Byte x,y;
@@ -569,101 +578,199 @@ int sys_SetColor(int color, int background) {
     return 0;
 }
 
-
-int sys_threadCreate(void (*function)(void* arg),void* parameter, unsigned int wrapper_func) {
-  //pillar un tcb
-  printk("1\n");
+int sys_threadCreate( void (*function)(void* arg), void* parameter, void* wrapper) {
+  //("threadCreate");
+  struct list_head *lhcurrent = NULL;
+  union task_union *uchild;
+  struct task_struct *master = current()->master;
+  
+  /* Any free task_struct? */
   if (list_empty(&freequeue)) return -ENOMEM;
 
-  struct list_head * tcb = list_first(&freequeue);
+  lhcurrent=list_first(&freequeue);
   
-  list_del(tcb);
-
-  if(!access_ok(VERIFY_READ,function,sizeof(void)) || !access_ok(VERIFY_READ,parameter,sizeof(void))) return -1;
-
-  printk("2\n");
-  union task_union * thread;
-  thread = (union task_union*)list_head_to_task_struct(tcb);
-  struct task_struct* ts_thread = list_head_to_task_struct(tcb); 
+  list_del(lhcurrent);
   
-  //compartir directorio, tabla de paginas y todo el
-  copy_data(current(),thread,sizeof(union task_union));
-  INIT_LIST_HEAD(&thread->task.threads);
-  ts_thread->TID = current()->num_threads + 1;
-  page_table_entry *PT = get_PT(current());
-  page_table_entry *PT_thread = get_PT(ts_thread);
+  uchild=(union task_union*)list_head_to_task_struct(lhcurrent);
 
-  printk("3\n");
-  
+  /* Copy the parent's task struct to child's */
+  copy_data(current(), uchild, sizeof(union task_union));
 
-  //paginas fisica para el thread
-  int new_ph_pag=alloc_frame();
-  if(new_ph_pag == -1) {
-    free_frame(new_ph_pag);
-    list_add_tail(tcb,&freequeue);
+  uchild->task.TID = global_TID++;
+  unsigned int userStackLogPage = (unsigned int)seach_free_page(get_PT(current()));
+
+  int userStackPhyPage = alloc_frame();
+  if (userStackPhyPage < 0) {
     return -EAGAIN;
-  } else {
-    //empiezas por abajo + numero de threads para setear la pagina que te toca, verificar que la siguiente pagina no esté seteada por heap
-    int current_logical_page_heap = (current()->heap_ptr - (char*)L_USER_START) / PAGE_SIZE + NUM_PAG_KERNEL;
-    if(current_logical_page_heap == 0) current_logical_page_heap = 0x11c;  //limite inferior de heap
-    if(current()->thread_ptr/PAGE_SIZE - 1 == current_logical_page_heap ) return -1;
-    
-    //el proceso va acumulando los usr stack de los threads
-    set_ss_pag(PT,(unsigned int)current()->thread_ptr/PAGE_SIZE - 1, new_ph_pag);
+  } else if (current()->heap_ptr?((int)(current()->heap_ptr) >> 12) >= userStackLogPage: 0) {
+    free_frame(userStackPhyPage);
+    return -ENOMEM;
   }
 
-  set_cr3(get_DIR(current()));
+  set_ss_pag(get_PT(current()), userStackLogPage, userStackPhyPage);
 
-  printk("4\n");
-  current()->thread_ptr -= PAGE_SIZE;
-  ts_thread->thread_ptr = current()->thread_ptr;
-  ts_thread->state= ST_READY;
-  init_stats(&ts_thread->p_stats);
+  int* user_stack = (int*)(userStackLogPage << 12);
+  user_stack[1023] = parameter;
+  user_stack[1022] = function;
+  user_stack[1021] = 0;
 
-  //inicializar usr_stack
-  unsigned int * puntero_usr_stack = ts_thread->thread_ptr + PAGE_SIZE;
-  puntero_usr_stack  = ts_thread->thread_ptr + PAGE_SIZE - 4;
-  *puntero_usr_stack = parameter;
-  puntero_usr_stack = ts_thread->thread_ptr + PAGE_SIZE - 8;
-  *puntero_usr_stack = function;
-  puntero_usr_stack  = ts_thread->thread_ptr + PAGE_SIZE - 12;
-  *puntero_usr_stack = 0;
+  uchild->stack[KERNEL_STACK_SIZE - 2] = (unsigned int) (&user_stack[1021]);
+  uchild->stack[KERNEL_STACK_SIZE - 5] = (unsigned int) wrapper;
 
-  printk("5\n");
   int register_ebp;		/* frame pointer */
- 
+  /* Map Parent's ebp to child's stack */
   register_ebp = (int) get_ebp();
-  register_ebp=(register_ebp - (int)current()) + (int)(ts_thread);
-  ts_thread->register_esp=register_ebp;
+  register_ebp=(register_ebp - (int)current()) + (int)(uchild);
+  uchild->task.register_esp=register_ebp;
 
   
+  uchild->task.user_stack_sp = userStackLogPage << 12;
+  uchild->task.state=ST_READY;
+  init_stats(&(uchild->task.p_stats));
 
-  unsigned int * esp_child =  ts_thread->register_esp + 16*sizeof(DWord); 
-  *esp_child = puntero_usr_stack; 
-  unsigned int * eip_child =  ts_thread->register_esp + 13*sizeof(DWord); 
-  *eip_child = wrapper_func;
-  set_cr3(get_DIR(current())); 
+  list_add_tail(&(uchild->task.list), &readyqueue);
+  list_add_tail(&(uchild->task.threads_list) ,&(master->threads));
 
-  printk("6\n");
-  current()->num_threads +=1;
-  list_add_tail(&(ts_thread->list),&readyqueue);
-  list_add_tail(&(ts_thread->threads), &current()->threads);
-  ts_thread->num_threads = current()->num_threads;
-  printk("7\n");
-  return ts_thread->TID;
+  master->num_threads = master->num_threads + 1;
+
+  
+  return uchild->task.TID;
 }
 
+void sys_threadExit(void) {
 
-void sys_threadExit(){
-  page_table_entry *PT = get_PT(current());
-  free_frame(get_frame(PT, (unsigned int)current()->thread_ptr/PAGE_SIZE));
-  del_ss_pag(PT,(unsigned int)current()->thread_ptr/PAGE_SIZE);
+  struct task_struct* master = current()->master;
+  if (master->num_threads == 1) sys_exit();
+
+  free_frame(get_frame(get_PT(current()), ((int)(current()->user_stack_sp) >> 12)));
+  del_ss_pag(get_PT(current()), ((int)(current()->user_stack_sp) >> 12));
+  current()->TID = -1;
+  current()->PID = -1;
+
+  //Hay que definir el nuevo master
+  if(isMaster()) {
+    struct list_head *lhcurrent = NULL;
+    int found = 0;
+    struct list_head * e = list_first(&master->threads);
+    while (e != &master->threads && !found) {
+      struct task_struct* ts = list_head_to_task_struct(e);
+      if (ts->state != ST_BLOCKED) found = 1; 
+      else e = e->next;
+    }
+
+    struct task_struct* newMaster = list_head_to_task_struct(e);
+    newMaster->num_threads = master->num_threads - 1;
+    for (int i = 0; i < 10; ++i) {
+      newMaster->semfs[i].count = master->semfs[i].count;
+      newMaster->semfs[i].TID = master->semfs[i].TID;
+      INIT_LIST_HEAD(&newMaster->semfs[i].blocked);
+      e = list_first(&master->semfs[i].blocked);
+      while (e != &master->semfs[i].blocked) {
+        list_add_tail(&e, &newMaster->semfs[i].blocked);
+        e = e->next;
+      }
  
-  if(!list_empty(&current()->threads)) list_del(&current()->threads);
+    }
 
-  list_add_tail(&(current()->list), &freequeue);
-  current()->PID=-1; 
-  current()->TID=-1;
-  current()->thread_ptr = NULL;
-  sched_next_rr();
+    list_del(&newMaster->threads_list);
+    e = list_first(&master->threads);
+    newMaster->master = newMaster;
+    while (e != &master->threads) {
+      list_add_tail(&e, &newMaster->threads);
+      struct task_struct* ts = list_head_to_task_struct(e);
+      ts->master = &newMaster;
+      e = e->next;
+    }
+  }
+  list_add_tail(&current()->list, &freequeue);
+  sched_next_rr(); 
+}
+
+int sys_semCreate(int initial_value) {
+  struct task_struct *master = current()->master;
+  int i;
+  for (i = 0; i < 10; ++i) {
+    if (master->semfs[i].TID == -1) break;
+  }
+
+  if (i == 10) return -ENOMEM;
+
+  master->semfs[i].count = initial_value;
+  INIT_LIST_HEAD(&master->semfs[i].blocked);
+  master->semfs[i].TID = current()->TID;
+
+  return i;
+}
+
+int sys_semWait(int semid) {
+  struct task_struct *master = current()->master;
+  if (semid < 0 || semid > 9 || master->semfs[semid].TID == -1) return -EAGAIN;
+  
+  master->semfs[semid].count -= 1;
+  if (master->semfs[semid].count < 0) {
+    current()->state = ST_BLOCKED;
+    list_add_tail(&current()->list,&master->semfs[semid].blocked);
+    sched_next_rr();
+  }
+  return 0;
+}
+
+int sys_semSignal(int semid) {
+  struct task_struct *master = current()->master;
+  if (semid < 0 || semid > 9 || master->semfs[semid].TID == -1) return -EAGAIN;
+
+  master->semfs[semid].count += 1;
+  if (master->semfs[semid].count >= 0) {
+      struct list_head *lhcurrent = NULL;
+      if (list_empty(&master->semfs[semid].blocked)) return 0;
+      lhcurrent=list_first(&master->semfs[semid].blocked);
+      list_del(lhcurrent);
+      struct task_struct* tu = (union task_union*)list_head_to_task_struct(lhcurrent);
+
+      tu->state = ST_READY;
+      list_add_tail(&tu->list, &readyqueue);
+  }
+  return 0;
+}
+
+int sys_semDestroy(int semid) {
+  struct task_struct *master = current()->master;
+  if (semid < 0 || semid > 9 || master->semfs[semid].TID != current()->TID) return -EAGAIN;
+  
+  while (!list_empty(&master->semfs[semid].blocked)) {
+      struct list_head *lhcurrent = NULL;
+      if (list_empty(&master->semfs[semid].blocked)) return 0;
+      lhcurrent=list_first(&master->semfs[semid].blocked);
+      list_del(lhcurrent);
+      struct task_struct* tu = list_head_to_task_struct(lhcurrent);
+
+      tu->state = ST_READY;
+      list_add_tail(&tu->list, &readyqueue);
+  }
+  master->semfs[semid].count = -1;
+  master->semfs[semid].TID = -1;
+  return 0;
+}
+
+void sys_clean_screen() {
+  int posX,posY = 0;
+  for (int i = 0; i < 25; ++i) {
+    for (int j = 0; j < 80; ++j ) {
+      if(posX+j < 80 && posY+i < 25) {
+        char temp_c = ' ';
+        printc_xy(posX+j,posY+i,temp_c);
+      }
+    }
+  }
+}
+
+void sys_clean_region(int startX, int startY, int endX, int endY) {
+    for (int i = startY; i <= endY; ++i) {
+        for (int j = startX; j <= endX; ++j) {
+            if (j >= 0 && j < 80 && i >= 0 && i < 25) { 
+                char temp_c = ' ';
+                printc_xy(j, i, temp_c);
+            }
+        }
+    }
 }

@@ -31,12 +31,12 @@
  .long sys_ni_syscall
  .long sys_ni_syscall
  .long sys_getpid
- .long sys_ni_syscall
- .long sys_ni_syscall
- .long sys_ni_syscall
- .long sys_ni_syscall
- .long sys_ni_syscall
- .long sys_ni_syscall
+ .long sys_threadCreate
+ .long sys_threadExit
+ .long sys_semCreate
+ .long sys_semWait
+ .long sys_semSignal
+ .long sys_semDestroy
  .long sys_ni_syscall
  .long sys_ni_syscall
  .long sys_ni_syscall
@@ -51,7 +51,7 @@
  .long sys_spritePut
  .long sys_gotoXY
  .long sys_SetColor
- .long sys_threadCreate
- .long sys_threadExit
+ .long sys_clean_screen
+ .long sys_clean_region
 .globl MAX_SYSCALL
 MAX_SYSCALL = (. - sys_call_table)/4

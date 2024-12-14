@@ -128,14 +128,16 @@ void sched_next_rr(void)
   struct list_head *e;
   struct task_struct *t;
 
+
+
   if (!list_empty(&readyqueue)) {
 	e = list_first(&readyqueue);
     list_del(e);
-
     t=list_head_to_task_struct(e);
   }
-  else
+  else {
     t=idle_task;
+  }
 
   t->state=ST_RUN;
   remaining_quantum=get_quantum(t);
@@ -165,7 +167,7 @@ void init_idle (void)
   union task_union *uc = (union task_union*)c;
 
   c->PID=0;
-  c->TID = 0;
+
   c->total_quantum=DEFAULT_QUANTUM;
 
   init_stats(&c->p_stats);
@@ -192,14 +194,22 @@ void init_task1(void)
   c->PID=1;
 
   c->total_quantum=DEFAULT_QUANTUM;
-  c->num_threads = 1;
-  c->thread_ptr = (TOTAL_PAGES*PAGE_SIZE);
-  INIT_LIST_HEAD(&c->threads);
+
   c->state=ST_RUN;
 
   c->heap_ptr=NULL;
+
+  c->TID = 1;
   
-  c->TID = 0;
+  c->user_stack_sp = NULL;
+
+  c->master = c;
+
+  c->num_threads = 1;
+
+  INIT_LIST_HEAD(&c->threads);
+
+  
   remaining_quantum=c->total_quantum;
 
   init_stats(&c->p_stats);
@@ -212,6 +222,14 @@ void init_task1(void)
   setMSR(0x175, 0, (unsigned long)&(uc->stack[KERNEL_STACK_SIZE]));
 
   set_cr3(c->dir_pages_baseAddr);
+
+
+  for (int i = 0; i < 10; ++i) {
+    c->semfs[i].count = -1;
+    c->semfs[i].TID = -1;
+    INIT_LIST_HEAD(&c->semfs[i].blocked);
+  }
+
 }
 
 void init_freequeue()
@@ -256,7 +274,8 @@ void inner_task_switch(union task_union *new)
   setMSR(0x175, 0, (unsigned long)&(new->stack[KERNEL_STACK_SIZE]));
 
   /* TLB flush. New address space */
-  if(current()->PID != new->task.PID) set_cr3(new_DIR);
+  if(current()->PID != new->task.PID)
+  set_cr3(new_DIR);
 
   switch_stack(&current()->register_esp, new->task.register_esp);
 }

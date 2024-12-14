@@ -2,6 +2,7 @@
     "files.associations": {
         "mm_address.h": "c",
         "sched.h": "c",
-        "functional": "c"
-    }
+        "*.tcc": "c"
+    },
+    "C_Cpp.errorSquiggles": "disabled"
 }

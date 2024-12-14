@@ -16,6 +16,12 @@
 
 enum state_t { ST_RUN, ST_READY, ST_BLOCKED };
 
+struct sem_t {
+  int count;
+  struct list_head blocked;
+  int TID;
+};
+
 struct task_struct {
   int PID;			/* Process ID. This MUST be the first field of the struct. */
   page_table_entry * dir_pages_baseAddr;
@@ -25,10 +31,13 @@ struct task_struct {
   int total_quantum;		/* Total quantum of the process */
   struct stats p_stats;		/* Process stats */
   char *heap_ptr;
-  int TID; // el tid del thread
-  struct list_head threads; //lista de threads
-  int num_threads; //numero de threads que tiene el proceso actual
-  int thread_ptr; // puntero de la pila de threads
+  int TID;
+  char *user_stack_sp;
+  struct sem_t semfs [10];
+  struct list_head threads;
+  struct list_head threads_list;
+  int num_threads;
+  struct task_struct* master;
 };
 
 union task_union {
