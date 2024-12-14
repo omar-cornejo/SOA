@@ -72,31 +72,32 @@ int access_ok(int type, const void * addr, unsigned long size)
 
   if (addr_fin < addr_ini) return 0; //This looks like an overflow ... deny access
 
+  unsigned int hp = ((unsigned int) current()->heap_ptr) >>12;
+  unsigned int usp = ((unsigned int) current()->user_stack_sp) >> 12;
+
   switch(type)
   {
     case VERIFY_WRITE:
 
-      if(current()->heap_ptr != NULL) {
-        if ((addr_ini>=USER_FIRST_PAGE+NUM_PAG_CODE)&&
-          ((unsigned long)(addr+size)<=(unsigned long)current()->heap_ptr))
-	  return 1;
-      }else {
-        /* Should suppose no support for automodifyable code */
-      if ((addr_ini>=USER_FIRST_PAGE+NUM_PAG_CODE)&&
-          (addr_fin<=USER_FIRST_PAGE+NUM_PAG_CODE+NUM_PAG_DATA))
-	  return 1;
-      }
-      
-    default:
-      if(current()->heap_ptr != NULL) {
-        if ((addr_ini>=USER_FIRST_PAGE)&&
-  	((unsigned long)(addr+size)<=(unsigned long)current()->heap_ptr))
-          return 1;
+      if (hp && usp) {
+        return ((addr_ini>=USER_FIRST_PAGE+NUM_PAG_CODE)&& (addr_fin <= hp))|| ((addr_ini>=usp)&& (addr_fin <= TOTAL_PAGES));
+      } else if (hp && !usp) {
+        return ((addr_ini>=USER_FIRST_PAGE+NUM_PAG_CODE)&& (addr_fin <= hp));
+      } else if (!hp && usp) {
+        return ((addr_ini>=USER_FIRST_PAGE+NUM_PAG_CODE)&& (addr_fin <= USER_FIRST_PAGE+NUM_PAG_CODE+NUM_PAG_DATA))|| ((addr_ini>=usp)&& (addr_fin <= TOTAL_PAGES));
       } else {
-        if ((addr_ini>=USER_FIRST_PAGE)&&
-  	(addr_fin<=(USER_FIRST_PAGE+NUM_PAG_CODE+NUM_PAG_DATA)))
-          return 1;
-      }
+        return ((addr_ini>=USER_FIRST_PAGE+NUM_PAG_CODE) && (addr_fin <= USER_FIRST_PAGE+NUM_PAG_CODE+NUM_PAG_DATA));
+      }      
+    default:
+      if (hp && usp) {
+        return ((addr_ini>=USER_FIRST_PAGE)&& (addr_fin <= hp))|| ((addr_ini>=usp)&& (addr_fin <= TOTAL_PAGES));
+      } else if (hp && !usp) {
+        return ((addr_ini>=USER_FIRST_PAGE)&& (addr_fin <= hp));
+      } else if (!hp && usp) {
+        return ((addr_ini>=USER_FIRST_PAGE)&& (addr_fin <= USER_FIRST_PAGE+NUM_PAG_CODE+NUM_PAG_DATA))|| ((addr_ini>=usp)&& (addr_fin <= TOTAL_PAGES));
+      } else {
+        return ((addr_ini>=USER_FIRST_PAGE) && (addr_fin <= USER_FIRST_PAGE+NUM_PAG_CODE + NUM_PAG_DATA));
+      }    
       
   }
   printk("Fuera del rango del heap\n");

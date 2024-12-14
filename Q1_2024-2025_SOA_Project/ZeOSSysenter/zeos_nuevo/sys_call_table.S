@@ -23,12 +23,12 @@ ENTRY (sys_call_table)
 	.long sys_ni_syscall	//18
 	.long sys_ni_syscall	//19
 	.long sys_getpid	//20	
-	.long sys_ni_syscall	//21
-	.long sys_ni_syscall	//22
-	.long sys_ni_syscall	//23
-	.long sys_ni_syscall	//24
-	.long sys_ni_syscall	//25
-	.long sys_ni_syscall	//26
+	.long sys_threadCreate	//21
+	.long sys_threadExit	//22
+	.long sys_semCreate	//23
+	.long sys_semWait	//24
+	.long sys_semSignal	//25
+	.long sys_semDestroy	//26
 	.long sys_ni_syscall	//27
 	.long sys_ni_syscall	//28
 	.long sys_ni_syscall	//29
@@ -43,5 +43,7 @@ ENTRY (sys_call_table)
 	.long sys_spritePut //38
 	.long sys_gotoXY //39
 	.long sys_SetColor //40
+	.long sys_clean_screen	//41
+	.long sys_clean_region	//42
 .globl MAX_SYSCALL
 MAX_SYSCALL = (. - sys_call_table)/4
